@@ -333,65 +333,118 @@ const Core = (() => {
     if (/[0-9]/.test(f)) return !isNumberedStep(l);
     const lo = l.toLowerCase(); return lo.startsWith("a pinch") || lo.startsWith("pinch");
   }
-  function sectionHeader(line) {
-    if (startsWithQuantity(line) || isNumberedStep(line)) return null;
-    const words = line.split(" ").filter(Boolean); if (words.length > 6) return null;
-    const colon = line.endsWith(":"); let name = line.replace(/^[: ]+|[: ]+$/g, "");
-    const lo = name.toLowerCase(); const forStart = lo.startsWith("for the ") || lo.startsWith("for ");
-    const caps = name.length > 2 && name === name.toUpperCase() && /\p{L}/u.test(name);
-    if (!(colon || forStart || caps)) return null;
-    if (forStart && !colon && words.length > 4) return null;
-    name = name.replace(/^for (the )?/i, ""); if (!name) return null;
-    return name[0].toUpperCase() + name.slice(1).toLowerCase();
-  }
-  function strip(header, suffixes) {
-    const lo = header.toLowerCase();
-    for (const s of suffixes) if (lo.endsWith(" " + s)) { const n = header.slice(0, header.length - s.length - 1).trim(); return n || null; }
-    return null;
-  }
   const newSection = (name = "") => ({ id: Math.random().toString(36).slice(2), name, ingredients: [], steps: [] });
-  function sectionIndex(name, sections) {
+  const BULLET_RE = /^\s*[-•*▢□☐◦·–‣○●]\s*/;
+  const norm = l => l.toLowerCase().replace(/[’`]/g, "'").replace(/^[: ]+|[:. ]+$/g, "").trim();
+  const isInstructionHeader = lo => INS_H.includes(lo) || /how it'?s (done|made)|^(and )?that'?s how|^here'?s how|^how to (make|prepare)|^(zubereitung|preparation|method|directions|instructions)\b/.test(lo) && lo.split(" ").length <= 6;
+  const isIngredientHeader = lo => ING_H.includes(lo) || /^ingredients\b|^you('ll| will) need/.test(lo) && lo.split(" ").length <= 4;
+  const titleCase = n => n ? n[0].toUpperCase() + n.slice(1) : n;
+  function headingName(line) {
+    let n = line.replace(/^[#\s]+/, "").replace(/[:\s]+$/, "").replace(/^for (the )?/i, "").trim();
+    if (n === n.toUpperCase()) n = n.toLowerCase();   // "FILLING" → "Filling"
+    return titleCase(n);
+  }
+  /** Servings / yield anywhere in a short line: "Serves 4", "Makes 16", "for 20 pieces", "4 servings". */
+  function parseServings(line) {
+    const lo = line.toLowerCase();
+    if (lo.split(/\s+/).length > 9) return null;
+    const m = lo.match(/^(?:serves|servings|yield|yields|makes|portions|for)\s*:?\s*(?:about\s*)?(\d+)/)
+      || lo.match(/for\s*(\d+)\s*(?:pieces|pcs|servings|people|persons|portions|pers\.?|cookies|rolls|dumplings|muffins|bars|slices)\b/)
+      || lo.match(/^(\d+)\s*(?:servings|portions|people|persons)\b/)
+      || lo.match(/\b(?:serves|makes|yields?)\s*:?\s*(?:about\s*)?(\d+)/);
+    return m ? +m[1] : null;
+  }
+  /** "…/recipes/pork-meat/gyoza-(japanese-dumplings)/rc/3819" → "Gyoza (japanese dumplings)" */
+  function titleFromUrl(url) {
+    try {
+      const parts = decodeURIComponent(url.split(/[?#]/)[0]).split("/").slice(3).filter(p => /[a-z]/i.test(p) && p.length >= 4 && !/^(recipes?|rezepte?|en|de|fr|it|www)$/i.test(p));
+      const best = parts.filter(p => p.includes("-")).pop() || parts.pop();
+      return best ? titleCase(best.replace(/[-_]+/g, " ").replace(/\.\w+$/, "").trim()) : "";
+    } catch { return ""; }
+  }
+  function sectionIndex(name, sections, insertAfter) {
     const lo = name.toLowerCase();
     const idx = sections.findIndex(s => { const o = s.name.toLowerCase(); return o && (o === lo || o.includes(lo) || lo.includes(o)); });
     if (idx >= 0) return idx;
     if (sections.length === 1 && !sections[0].name && !sections[0].ingredients.length && !sections[0].steps.length) { sections[0].name = name; return 0; }
-    sections.push(newSection(name)); return sections.length - 1;
+    const at = insertAfter == null ? sections.length : Math.min(insertAfter + 1, sections.length);
+    sections.splice(at, 0, newSection(name)); return at;
   }
   function parse(text) {
+    // 1. Clean lines, remember bullets, pull out links
+    const urls = [];
+    const raw = text.replace(/\r/g, "").split("\n");
+    const lines = [];
+    for (let l of raw) {
+      l = l.replace(/\[([^\]]+)\]\((https?:\/\/[^\s]+?)\)(?=\s|$)/g, (_, t, u) => { urls.push(u); return t; })
+           .replace(/^#+\s*/, "").replace(/\*\*|__/g, "");
+      if (/^\s*https?:\/\/\S+\s*$/.test(l)) { urls.push(l.trim()); continue; }
+      const bulleted = BULLET_RE.test(l) && !/^\s*-\s*\d+\s*°/.test(l);
+      const t = cleanLine(l);
+      if (t) lines.push({ t, bulleted, lo: norm(t) });
+    }
+    const counts = {}; for (const l of lines) counts[l.lo] = (counts[l.lo] || 0) + 1;
+    const ingredientLike = l => l && (l.bulleted || startsWithQuantity(l.t));
+    const wordCount = t => t.split(/\s+/).length;
+    const looksLikeHeading = (l, next, mode) => {
+      const t = l.t;
+      if (startsWithQuantity(t) || isNumberedStep(t) || /[.!?,;]$/.test(t) || wordCount(t) > 6 || /\d/.test(t)) return false;
+      if (t.endsWith(":") || /^for (the )?\S/i.test(t) && wordCount(t) <= 4) return true;
+      if (t.length > 2 && t === t.toUpperCase() && /\p{L}/u.test(t)) return true;
+      if (l.bulleted) return false;
+      if (counts[l.lo] > 1) return true;                          // "Dough" used once for ingredients, once for steps
+      if (mode !== "instructions" && ingredientLike(next) && wordCount(t) <= 4) return true;
+      if (mode === "instructions" && wordCount(t) <= 4) return true;   // short line between paragraphs
+      return false;
+    };
+
     let title = "", sections = [newSection()], cur = 0, mode = "unknown", unassigned = [], targeted = false, servings = null;
-    const lines = text.split(/\r?\n/).map(cleanLine).filter(Boolean);
-    for (const line of lines) {
-      const lower = line.toLowerCase().replace(/^[: ]+|[: ]+$/g, "");
-      if (servings == null) { const m = lower.match(/^(serves|servings|yield|yields|makes|portions)\s*:?\s*(about\s*)?(\d+)/); if (m) { servings = +m[3]; continue; } }
-      if (ING_H.includes(lower)) { mode = "ingredients"; continue; }
-      if (INS_H.includes(lower)) { mode = "instructions"; targeted = false; continue; }
-      if (IGN_H.includes(lower)) { mode = "ignored"; continue; }
-      const hasQ = startsWithQuantity(line), numbered = isNumberedStep(line);
-      if (!title && !hasQ && !numbered && mode === "unknown" && line.length < 80) { title = line.replace(/^[: ]+|[: ]+$/g, ""); continue; }
-      const header = sectionHeader(line);
-      if (header) {
-        const insName = strip(header, INS_H);
-        if (insName) { mode = "instructions"; cur = sectionIndex(insName, sections); targeted = true; continue; }
-        const name = strip(header, ING_H) || header;
-        if (mode === "instructions") { cur = sectionIndex(name, sections); targeted = true; }
-        else {
-          mode = "ingredients";
-          if (!sections[cur].name && !sections[cur].ingredients.length) sections[cur].name = name;
-          else cur = sectionIndex(name, sections);
-        }
-        continue;
+    lines.forEach((l, idx) => {
+      const { t, lo } = l, next = lines[idx + 1];
+      if (servings == null && !l.bulleted) { const sv = parseServings(t); if (sv) { servings = sv; return; } }
+      if (isIngredientHeader(lo)) { mode = "ingredients"; return; }
+      if (isInstructionHeader(lo)) { mode = "instructions"; targeted = false; return; }
+      if (IGN_H.includes(lo)) { mode = "ignored"; return; }
+      const hasQ = startsWithQuantity(t), numbered = isNumberedStep(t);
+
+      // Title: first plain line that is not reused later as a section name
+      if (!title && mode === "unknown" && !l.bulleted && !hasQ && !numbered && t.length < 80 && counts[lo] === 1 && !/[.!?]$/.test(t)) {
+        title = t.replace(/[: ]+$/, ""); return;
       }
-      if (mode === "ignored") continue;
-      const wc = line.split(" ").length;
-      const asIng = mode === "ingredients" ? !(numbered && wc > 8) : mode === "instructions" ? false : hasQ && !numbered && wc <= 12;
-      if (asIng) sections[cur].ingredients.push(parseIngredient(line));
+
+      if (looksLikeHeading(l, next, mode)) {
+        const name = headingName(t);
+        const insName = name.replace(/\s+(instructions|directions|method|preparation|steps)$/i, "");
+        if (insName !== name) { mode = "instructions"; cur = sectionIndex(insName, sections, cur); targeted = true; return; }
+        const clean = name.replace(/\s+ingredients$/i, "");
+        if (mode === "instructions") { cur = sectionIndex(clean, sections, cur); targeted = true; return; }
+        // A section that already has ingredients shows up again → we are in the instructions now
+        const existing = sections.findIndex(s => s.name && s.name.toLowerCase() === clean.toLowerCase() && s.ingredients.length);
+        if (existing >= 0 && !ingredientLike(next)) { mode = "instructions"; cur = existing; targeted = true; return; }
+        mode = "ingredients";
+        if (!sections[cur].name && !sections[cur].ingredients.length) sections[cur].name = clean;
+        else cur = sectionIndex(clean, sections, null);
+        return;
+      }
+      if (mode === "ignored") return;
+
+      const wc = wordCount(t);
+      let asIng;
+      if (mode === "ingredients") {
+        asIng = l.bulleted || hasQ || wc <= 6 && !/[.!?]$/.test(t);
+        if (!asIng || numbered && wc > 8) { asIng = false; mode = "instructions"; }   // prose after the list = steps
+      } else if (mode === "instructions") asIng = false;
+      else asIng = (hasQ || l.bulleted) && !numbered && wc <= 14;
+
+      if (asIng) sections[cur].ingredients.push(parseIngredient(t));
       else {
-        const step = metricText(stripStep(line)); if (!step) continue;
+        const step = metricText(stripStep(t)); if (!step) return;
         if (targeted || sections.length === 1) sections[cur].steps.push(step); else unassigned.push(step);
       }
-    }
+    });
     if (unassigned.length) { if (sections.length === 1) sections[0].steps.push(...unassigned); else sections.push({ ...newSection("Instructions"), steps: unassigned }); }
     const ne = sections.filter(s => s.ingredients.length || s.steps.length);
+    if (!title && urls.length) title = titleFromUrl(urls[0]);
     return { title: title || "Imported Recipe", servings: servings || 4, sections: ne.length ? ne : [newSection()] };
   }
   return { parse, parseIngredient, parseAmount, format, usText, metricText, toMetric, fraction };
@@ -506,7 +559,7 @@ function detailView(id) {
   const scale = st.servings / r.servings, multi = r.sections.length > 1;
   const groups = [];
   const secs = r.sections.map((s, si) => {
-    const g = { name: multi ? (s.name === "Instructions" ? "Steps" : s.name.slice(0, 8)) : "", items: [] };
+    const g = { name: multi ? railLabel(s.name) : "", items: [] };
     let h = multi && s.name ? `<div class="secname">${esc(s.name)}</div>` : "";
     if (s.ingredients.length) {
       g.items.push([`a${si}i`, multi ? "" : "Ingred.", ICON.basket]);
@@ -537,6 +590,12 @@ function detailView(id) {
     ${(railHTML = `<div class="rail">${groups.map(g => `<div class="rg">${g.name ? `<div class="rgn">${esc(g.name)}</div>` : ""}${g.items.map(([a, t, ic]) => `<button class="${st.anchor === a ? "on" : ""} ${t ? "" : "small"}" onclick="jump('${a}')" title="${esc(g.name)} ${ic === ICON.basket ? "ingredients" : "instructions"}">${ic}${t ? `<span>${esc(t)}</span>` : ""}</button>`).join("")}</div>`).join("")}</div>`, "")}`;
 }
 let railHTML = "";
+/** "To cook/steam" → "Cook", "Instructions" → "Steps", "Filling" → "Filling" */
+function railLabel(name) {
+  if (!name || name === "Instructions") return "Steps";
+  const short = name.replace(/^(to|for( the)?|make( the)?)\s+/i, "").split(/[\/,&(]| and /)[0].trim();
+  return (short[0] || "").toUpperCase() + short.slice(1, 8);
+}
 function tog(set, k) { set.has(k) ? set.delete(k) : set.add(k); render(); }
 function jump(a) {
   st.anchor = a; render();
