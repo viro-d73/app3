@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Recipe Box</title>
+<meta name="theme-color" content="#F2F2F7">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Recipes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root{--accent:#FF9500;--bg:#F2F2F7;--card:#fff;--label:#000;--sec:#8E8E93;--sep:#E5E5EA;--tint:rgba(255,149,0,.13)}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;color:var(--label);overscroll-behavior:none}
+       background:radial-gradient(circle at 30% 20%,#fff4e6,#efe7dd 60%,#e4dcd2);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",Arial,sans-serif;color:var(--label)}
+  .side{max-width:280px;color:#5b4a3a;font-size:14px;line-height:1.5}
+  .side h1{font-size:26px;margin:0 0 8px;color:#3a2a1a}
+  .side kbd{background:#fff;border-radius:5px;padding:1px 6px;border:1px solid #d8cfc4;font-size:12px}
+  @media (min-width:600px){body{background:#e9e4de}.screen{box-shadow:0 0 40px rgba(0,0,0,.08)}}
+  .screen{position:fixed;inset:0;margin:0 auto;max-width:520px;overflow:hidden;background:var(--bg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+
+
+  .views{flex:1;position:relative;overflow:hidden}
+  .view{position:absolute;inset:0;overflow-y:auto;background:var(--bg);scrollbar-width:none}
+  .view::-webkit-scrollbar{display:none}
+  .nav{display:flex;align-items:center;justify-content:space-between;padding:6px 16px;min-height:44px;position:sticky;top:0;background:rgba(242,242,247,.92);backdrop-filter:blur(20px);z-index:3}
+  .nav .btn{color:var(--accent);font-size:17px;background:none;border:0;padding:4px;cursor:pointer;display:flex;align-items:center;gap:4px;font-family:inherit}
+  .nav .center{font-weight:600;font-size:17px}
+  .large{font-size:34px;font-weight:700;padding:0 16px 8px;letter-spacing:.3px}
+  .search{margin:0 16px 10px;background:#E3E3E8;border-radius:10px;padding:8px 10px;display:flex;gap:6px;align-items:center;color:var(--sec)}
+  .search input{border:0;background:none;outline:none;font-size:17px;flex:1;font-family:inherit}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:2px 16px 12px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex-shrink:0;border:0;border-radius:99px;padding:8px 14px;font-weight:600;font-size:15px;background:#fff;cursor:pointer;font-family:inherit;color:#000}
+  .chip.on{background:var(--accent);color:#fff}
+  .chip.add{background:none;border:1.5px dashed rgba(255,149,0,.6);color:var(--accent)}
+  .ghead{font-size:20px;font-weight:700;padding:14px 20px 6px}
+  .shead{font-size:13px;color:var(--sec);text-transform:uppercase;padding:18px 32px 6px;display:flex;justify-content:space-between}
+  .group{background:var(--card);border-radius:12px;margin:0 16px;overflow:hidden}
+  .row{display:flex;align-items:center;gap:12px;padding:11px 16px;position:relative;cursor:pointer;min-height:44px;font-size:17px}
+  .row+.row::before{content:"";position:absolute;top:0;left:16px;right:0;height:.5px;background:var(--sep)}
+  .row .chev{margin-left:auto;color:#C7C7CC;font-size:20px}
+  .thumb{width:44px;height:44px;border-radius:10px;background:var(--tint);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;flex-shrink:0}
+  .rt{font-weight:600}
+  .rs{font-size:12px;color:var(--sec);margin-top:2px}
+  .tabbar{height:calc(56px + env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);flex-shrink:0;display:flex;justify-content:space-around;padding-top:7px;background:rgba(249,249,249,.94);backdrop-filter:blur(20px);border-top:.5px solid #ccc;z-index:6}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;font-weight:500;color:#999;border:0;background:none;cursor:pointer;width:90px;position:relative;font-family:inherit}
+  .tab.on{color:var(--accent)}
+  .tab svg{width:26px;height:26px}
+  .badge{position:absolute;top:-2px;left:52px;background:#FF3B30;color:#fff;border-radius:9px;font-size:12px;min-width:18px;height:18px;padding:0 5px;display:flex;align-items:center;justify-content:center}
+
+  .seg{display:flex;background:#E3E3E8;border-radius:9px;padding:2px}
+  .seg button{border:0;background:none;padding:5px 14px;font-size:13px;font-weight:600;border-radius:7px;cursor:pointer;font-family:inherit}
+  .seg button.on{background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+  .detail{padding:0 70px 40px 16px}
+  .cat{color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.5px;margin-top:6px}
+  .dtitle{font-size:32px;font-weight:700;margin:4px 0 12px;line-height:1.1}
+  .card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:14px}
+  .stepper{display:flex;border-radius:8px;background:#E9E9EE;overflow:hidden}
+  .stepper button{border:0;background:none;width:46px;height:32px;font-size:20px;cursor:pointer}
+  .stepper button+button{border-left:1px solid #d1d1d6}
+  .prim{width:100%;border:0;background:var(--accent);color:#fff;font-weight:600;font-size:16px;border-radius:12px;padding:14px;cursor:pointer;font-family:inherit;margin-bottom:18px}
+  .sec2{width:100%;border:0;background:var(--tint);color:var(--accent);font-weight:600;font-size:16px;border-radius:12px;padding:14px;cursor:pointer;font-family:inherit}
+  .secname{font-size:22px;font-weight:700;margin:10px 0 10px}
+  .lbl{color:var(--accent);font-weight:600;font-size:17px;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+  .ing{display:flex;gap:10px;align-items:baseline;padding:8px 0;cursor:pointer;font-size:16px}
+  .ing+.ing{border-top:.5px solid var(--sep)}
+  .ing .amt{font-weight:600;min-width:72px;font-variant-numeric:tabular-nums}
+  .ing.done,.step.done{opacity:.4}
+  .ing.done span{text-decoration:line-through}
+  .circ{width:20px;height:20px;border-radius:50%;border:1.6px solid #C7C7CC;flex-shrink:0;position:relative;top:4px}
+  .done .circ{background:var(--accent);border-color:var(--accent)}
+  .step{display:flex;gap:12px;padding:6px 0;cursor:pointer;font-size:16px;line-height:1.4}
+  .num{width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .step.done .num{background:#34C759}
+  .rail{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;padding:6px;border-radius:16px;background:rgba(255,255,255,.75);backdrop-filter:blur(14px);box-shadow:0 4px 14px rgba(0,0,0,.1);z-index:4}
+  .rail button{width:50px;height:46px;border:0;border-radius:12px;background:var(--tint);color:var(--accent);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:9px;font-weight:700;font-family:inherit;overflow:hidden}
+  .rail button.on{background:var(--accent);color:#fff}
+  .rail svg{width:17px;height:17px}
+  .rail .rg{display:flex;flex-direction:column;gap:4px;align-items:center}
+  .rail .rg+.rg{margin-top:4px}
+  .rail .rgn{font-size:9px;font-weight:700;color:var(--sec);max-width:50px;overflow:hidden;white-space:nowrap}
+  .rail button.small{width:46px;height:36px}
+  .sheet{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,.25)}
+  .sheet.anim{animation:fade .2s}
+  .sheet.anim .panel{animation:up .28s ease-out}
+  .sheet .panel{background:var(--bg);border-radius:12px 12px 0 0;height:calc(100% - 20px - env(safe-area-inset-top));padding-bottom:env(safe-area-inset-bottom);overflow-y:auto;position:relative}
+  @keyframes up{from{transform:translateY(100%)}}
+  @keyframes fade{from{background:rgba(0,0,0,0)}}
+  #imp{width:100%;height:330px;border:0;border-radius:14px;padding:14px;font-size:16px;font-family:inherit;resize:none;outline:none;line-height:1.4}
+  .hint{font-size:13px;color:var(--sec);margin:10px 4px 12px;line-height:1.4}
+  .two{display:flex;gap:10px}
+  .two button{flex:1}
+  .input{border:0;outline:none;font-size:17px;flex:1;font-family:inherit;background:none;min-width:0}
+  .toast{position:absolute;bottom:calc(80px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:rgba(255,255,255,.95);padding:10px 16px;border-radius:99px;font-weight:600;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.15);z-index:30;white-space:nowrap;animation:fade .2s}
+  .avatar{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#FF9500,#FF2D55);color:#fff;font-weight:700;font-size:26px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .toggle{width:51px;height:31px;border-radius:16px;background:#E9E9EA;position:relative;cursor:pointer;margin-left:auto;transition:.2s;flex-shrink:0}
+  .toggle::after{content:"";position:absolute;width:27px;height:27px;border-radius:50%;background:#fff;top:2px;left:2px;box-shadow:0 2px 4px rgba(0,0,0,.2);transition:.2s}
+  .toggle.on{background:#34C759}
+  .toggle.on::after{left:22px}
+  .val{margin-left:auto;color:var(--sec)}
+  .red{color:#FF3B30}
+  .acc{color:var(--accent)}
+  .foot{font-size:13px;color:var(--sec);padding:6px 32px 0;line-height:1.35}
+  .empty{text-align:center;color:var(--sec);padding:60px 30px}
+  .del{margin-left:auto;color:#FF3B30;background:none;border:0;font-size:15px;cursor:pointer;font-family:inherit}
+  .gcheck{width:24px;height:24px;border-radius:50%;border:1.8px solid #C7C7CC;flex-shrink:0}
+  .gdone .gcheck{background:var(--accent);border-color:var(--accent)}
+  .gdone .gname{text-decoration:line-through;color:var(--sec)}
+  .gamt{margin-left:auto;color:var(--sec);font-weight:600;font-size:15px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .rev .rowi{display:flex;gap:8px;padding:8px 0;font-size:15px;border-top:.5px solid var(--sep)}
+  .rev .rowi:first-of-type{border-top:0}
+  .lhead{font-size:17px}
+  .chevr{color:var(--accent);font-weight:700;font-size:20px;display:inline-block;transition:transform .2s;width:12px}
+  .chevr.down{transform:rotate(90deg)}
+  .lcount{background:var(--accent);color:#fff;font-weight:600;font-size:13px;border-radius:99px;padding:2px 9px}
+  .lcount.ok{background:rgba(52,199,89,.15);color:#34C759}
+  .lmenu{border:0;background:none;color:var(--sec);font-size:15px;cursor:pointer;letter-spacing:1px;padding:4px}
+  .lacts{display:flex;gap:8px;padding:0 16px 12px}
+  .lacts button{flex:1;border:0;border-radius:9px;background:#F2F2F7;padding:8px 4px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;color:#000}
+  .lacts button.red{color:#FF3B30}
+  .ed input,.ed select,.ed textarea{font-family:inherit;font-size:16px;border:0;outline:none;background:#F2F2F7;border-radius:8px;padding:8px;color:#000;min-width:0}
+  .ed .irow{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+  .ed .amtin{width:58px;text-align:right}
+  .ed .unitsel{width:66px;padding:8px 2px}
+  .ed .namein{flex:1}
+  .ed textarea{flex:1;height:auto;resize:none;line-height:1.35}
+  .ed .x{border:0;background:none;color:#C7C7CC;font-size:18px;cursor:pointer;padding:4px}
+  .ed .addb{border:0;background:none;color:var(--accent);font-weight:600;font-size:15px;cursor:pointer;padding:6px 0;font-family:inherit}
+  .ed .secin{font-weight:700;font-size:18px;width:100%;background:none;padding:4px 0}
+  .ed .sub{font-size:13px;color:var(--sec);text-transform:uppercase;margin:12px 0 6px}
+  .pill{font-size:11px;background:var(--tint);color:var(--accent);padding:2px 8px;border-radius:99px;font-weight:700}
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="views" id="views"></div>
+  <div class="tabbar" id="tabbar"></div>
+</div>
+
+<script>
+// JS port of UnitConverter.swift + RecipeParser.swift (same rules) for the browser preview.
+const Core = (() => {
+  const GRAMS_PER_CUP = [
+    [["almond flour","almond meal","ground almonds"],96],[["coconut flour"],112],[["bread flour"],127],
+    [["whole wheat flour","wholemeal flour"],120],[["cake flour"],114],[["flour"],125],
+    [["brown sugar"],213],[["powdered sugar","icing sugar","confectioners"],120],[["coconut sugar"],150],[["sugar"],200],
+    [["cocoa"],85],[["cornstarch","corn starch"],128],[["peanut butter","almond butter","nut butter"],256],[["butter","margarine"],227],[["shortening"],191],[["coconut oil"],218],
+    [["honey","maple syrup","molasses","corn syrup","golden syrup"],340],
+    [["rolled oats","oats","oatmeal"],90],[["chocolate chips","chocolate chunks","chopped chocolate","chips"],170],
+    [["cream cheese"],232],[["sour cream","greek yogurt","yogurt","yoghurt"],245],[["ricotta"],246],[["mascarpone"],240],
+    [["parmesan"],100],[["shredded cheese","grated cheese","cheddar","mozzarella","cheese"],113],
+    [["shredded coconut","desiccated coconut","coconut flakes"],85],[["raisins","cranberries","dried fruit"],150],
+    [["walnuts","pecans","hazelnuts"],120],[["almonds","peanuts","cashews","nuts"],140],
+    [["breadcrumbs","bread crumbs","panko"],110],[["cracker crumbs","cookie crumbs","crumbs"],100],[["rice"],185],[["quinoa"],170],[["lentils"],200],[["salt"],288],
+    [["baking soda","baking powder"],220],[["blueberries","raspberries","berries"],150],[["strawberries"],150],
+    [["pumpkin puree","pumpkin"],245],[["banana"],225],[["applesauce","apple sauce"],250],[["jam","jelly","preserves"],320],[["nutella"],296],
+  ];
+  const LIQUIDS = ["milk","water","cream","buttermilk","juice","oil","stock","broth","wine","coffee","tea","vinegar","liqueur","rum","beer","sauce","extract"];
+  const NOT_LIQUID = ["cream cheese","sour cream","ice cream","chocolate","chips","milk powder","powdered milk","coconut oil"];
+
+  function gramsPerCup(name) {
+    const l = name.toLowerCase();
+    const word = k => new RegExp("(^|[^a-z])" + k + "s?($|[^a-z])").test(l);
+    if (LIQUIDS.some(word) && !NOT_LIQUID.some(k => l.includes(k))) return null;
+    if (l.includes("coconut oil")) return 218;
+    for (const [keys, g] of GRAMS_PER_CUP) if (keys.some(k => l.includes(k))) return g;
+    return null;
+  }
+  function roundMetric(v) {
+    if (v < 10) return Math.round(v * 2) / 2;
+    if (v < 100) return Math.round(v);
+    if (v < 1000) return Math.round(v / 5) * 5;
+    return Math.round(v / 10) * 10;
+  }
+  function toMetric(amount, unit, name) {
+    if (amount == null) return [null, unit];
+    switch (unit) {
+      case "cup": { const d = gramsPerCup(name); return d ? [roundMetric(amount * d), "g"] : [roundMetric(amount * 240), "ml"]; }
+      case "oz": return [roundMetric(amount * 28.35), "g"];
+      case "lb": return [roundMetric(amount * 453.6), "g"];
+      case "fl oz": return [roundMetric(amount * 29.57), "ml"];
+      default: return [amount, unit];
+    }
+  }
+  function num(v, maxDec = 1) { const f = Math.pow(10, maxDec); return String(Math.round(v * f) / f); }
+  function fraction(v, thirds = true) {
+    let opts = [[0,""],[0.125,"⅛"],[0.25,"¼"],[0.5,"½"],[0.75,"¾"],[1,""]];
+    if (thirds) opts = opts.concat([[1/3,"⅓"],[2/3,"⅔"]]);
+    if (v >= 10) return num(Math.round(v));
+    const whole = Math.floor(v), rest = v - whole;
+    let best = opts[0]; for (const o of opts) if (Math.abs(o[0] - rest) < Math.abs(best[0] - rest)) best = o;
+    if (Math.abs(best[0] - rest) > 0.07) return num(v, 2);
+    const w = whole + (best[0] === 1 ? 1 : 0);
+    if (!best[1]) return String(w);
+    return w === 0 ? best[1] : `${w} ${best[1]}`;
+  }
+  function formatMetric(v, unit) {
+    switch (unit) {
+      case "g": return v >= 1000 ? `${num(v/1000,2)} kg` : `${num(roundMetric(v))} g`;
+      case "ml": return v >= 1000 ? `${num(v/1000,2)} l` : `${num(roundMetric(v))} ml`;
+      case "kg": case "l": case "dl": return `${num(v,2)} ${unit}`;
+      case "tsp": case "tbsp": case "cup": return `${fraction(v)} ${unit}`;
+      case "pinch": return v === 1 ? "1 pinch" : `${fraction(v)} pinches`;
+      case "pc": return `${fraction(v)} pc`;
+      case "": return fraction(v);
+      default: return `${num(v,2)} ${unit}`;
+    }
+  }
+  function spoonsOrCups(cups) {
+    if (cups >= 0.24) return `${fraction(cups)} ${cups > 1.01 ? "cups" : "cup"}`;
+    const tbsp = cups * 16;
+    if (tbsp >= 1) return `${fraction(tbsp)} tbsp`;
+    return `${fraction(tbsp * 3)} tsp`;
+  }
+  function formatUS(v, unit, name) {
+    if (unit === "g" || unit === "kg") {
+      const g = unit === "kg" ? v * 1000 : v; const d = gramsPerCup(name);
+      if (d) return spoonsOrCups(g / d);
+      const oz = g / 28.35; if (oz >= 16) return `${num(oz/16,2)} lb`;
+      return `${fraction(oz,false)} oz`;
+    }
+    if (unit === "ml" || unit === "dl" || unit === "l") {
+      const ml = unit === "l" ? v * 1000 : unit === "dl" ? v * 100 : v; return spoonsOrCups(ml / 240);
+    }
+    if (unit === "cup") return spoonsOrCups(v);
+    return formatMetric(v, unit);
+  }
+  function format(amount, unit, name, system, scale = 1) {
+    if (amount == null) return unit || "";
+    const v = amount * scale;
+    if (system === "metric") { const [a, u] = toMetric(v, unit, name); return formatMetric(a ?? v, u); }
+    return formatUS(v, unit, name);
+  }
+  function celsius(f) { return Math.round(((f - 32) * 5 / 9) / 10) * 10; }
+  function fahrenheit(c) { const f = c * 9 / 5 + 32, q = Math.round(f / 25) * 25; return Math.abs(q - f) <= 8 ? q : Math.round(f / 5) * 5; }
+  function metricText(t) {
+    t = t.replace(/(\d+(?:\.\d+)?)\s*[x×]\s*(\d+(?:\.\d+)?)\s*(?:-|\s)?(?:inches|inch|in\.|”|")/g, (_, a, b) => `${Math.round(a*2.54)}×${Math.round(b*2.54)} cm`);
+    t = t.replace(/(\d+(?:\.\d+)?)\s*(?:-|\s)?(?:inches|inch|in\.|”)/g, (_, a) => { const cm = a * 2.54; return cm < 5 ? `${num(cm,1)} cm` : `${Math.round(cm)} cm`; });
+    t = t.replace(/(\d{2,3})\s*(?:°|º|degrees?)?\s*(?:F\b|Fahrenheit)/g, (_, f) => `${celsius(+f)} °C`);
+    return t;
+  }
+  function usText(t) { return t.replace(/(\d{2,3})\s*°\s*C\b/g, (_, c) => `${fahrenheit(+c)} °F`); }
+
+  // ---------- Parser ----------
+  const UNIT_ALIASES = [
+    [["T","Tbs","Tbsp","TB"],"tbsp",true],[["t"],"tsp",true],
+    [["fluid ounces","fluid ounce","fl. oz.","fl. oz","fl oz","floz"],"fl oz",false],
+    [["cups","cup","c."],"cup",false],[["tablespoons","tablespoon","tbsp.","tbsp","tbs.","tbs","el"],"tbsp",false],
+    [["teaspoons","teaspoon","tsp.","tsp","tl"],"tsp",false],[["ounces","ounce","oz.","oz"],"oz",false],
+    [["pounds","pound","lbs.","lbs","lb.","lb"],"lb",false],[["kilograms","kilogram","kg"],"kg",false],
+    [["grams","gram","gr.","gr","g"],"g",false],[["milliliters","millilitres","milliliter","millilitre","ml"],"ml",false],
+    [["deciliters","decilitres","deciliter","decilitre","dl"],"dl",false],[["liters","litres","liter","litre","l"],"l",false],
+    [["pinches","pinch"],"pinch",false],
+  ];
+  const UFRAC = {"½":.5,"⅓":1/3,"⅔":2/3,"¼":.25,"¾":.75,"⅕":.2,"⅖":.4,"⅗":.6,"⅘":.8,"⅙":1/6,"⅚":5/6,"⅛":.125,"⅜":.375,"⅝":.625,"⅞":.875};
+  const ING_H = ["ingredients","ingredient list","you will need","what you need","zutaten"];
+  const INS_H = ["instructions","directions","method","preparation","steps","how to make it","how to make","procedure","zubereitung"];
+  const IGN_H = ["notes","note","nutrition","tips","equipment"];
+  const isLetter = c => /\p{L}/u.test(c);
+
+  function parseAmount(text) {
+    const chars = Array.from(text).map(c => c === "⁄" ? "/" : c);
+    let i = 0, total = 0, found = false;
+    const skip = () => { while (i < chars.length && chars[i] === " ") i++; };
+    const readNum = () => { const s = i; while (i < chars.length && /[0-9.,]/.test(chars[i])) i++; if (i === s) return null; const v = parseFloat(chars.slice(s, i).join("").replace(",", ".")); return isNaN(v) ? null : v; };
+    for (let k = 0; k < 2; k++) {
+      skip();
+      if (i < chars.length && UFRAC[chars[i]] != null) { total += UFRAC[chars[i]]; i++; found = true; continue; }
+      const save = i; const n = readNum(); if (n == null) break;
+      if (chars[i] === "/") { i++; const d = readNum(); if (d) { total += n / d; found = true; continue; } i = save; break; }
+      if (found && n >= 1 && total >= 1) { i = save; break; }
+      total += n; found = true;
+      if (i < chars.length && UFRAC[chars[i]] != null) { total += UFRAC[chars[i]]; i++; }
+    }
+    if (!found) return null;
+    let rest = chars.slice(i).join("").replace(/^\s*(?:-|–|to)\s*[\d½⅓⅔¼¾⅛]+(?:\s*\/\s*\d+)?/, "");
+    return [total, rest.trim()];
+  }
+  function parseUnit(text) {
+    for (const [aliases, unit, cs] of UNIT_ALIASES) for (const a of aliases) {
+      const head = text.slice(0, a.length);
+      if (cs ? head !== a : head.toLowerCase() !== a.toLowerCase()) continue;
+      const next = text[a.length];
+      if (next && isLetter(next) && !a.endsWith(".")) continue;
+      return [unit, text.slice(a.length).trim()];
+    }
+    return null;
+  }
+  function bracketSize(text) {
+    if (!(text.startsWith("(") || text.startsWith("["))) return null;
+    const close = text.search(/[)\]]/); if (close < 0) return null;
+    const inner = text.slice(1, close), rest = text.slice(close + 1).trim();
+    const n = parseAmount(inner); if (!n) return null; const u = parseUnit(n[1]); if (!u) return null;
+    switch (u[0]) { case "g": case "ml": return [n[0], u[0], rest]; case "kg": return [n[0]*1000,"g",rest]; case "l": return [n[0]*1000,"ml",rest]; case "oz": return [n[0],"oz",rest]; default: return null; }
+  }
+  function cleanLine(line) {
+    let s = line.trim();
+    while (s && "-•*▢□☐◦·–‣○●".includes(s[0])) s = s.slice(1).trim();
+    return s.replace(/\t/g, " ").replace(/\s{2,}/g, " ");
+  }
+  function parseIngredient(raw) {
+    let line = cleanLine(raw), amount = null, unit = "";
+    const a = parseAmount(line); if (a) { amount = a[0]; line = a[1]; }
+    let bm = null; const b = bracketSize(line);
+    if (b) {
+      if (b[1] === "g" || b[1] === "ml") { bm = [b[0], b[1]]; line = b[2]; }
+      else if (amount != null && b[1] === "oz") { amount *= b[0]; unit = "oz"; line = b[2].replace(/^(packages?|cans?|jars?|bars?|blocks?|sticks?)\s+/, ""); }
+    }
+    if (unit === "") { const u = parseUnit(line); if (u) { unit = u[0]; line = u[1]; } }
+    if (unit !== "" && /^[(\[][^)\]]*\d[^)\]]*[)\]]/.test(line) && !bm) {
+      const b2 = bracketSize(line);
+      if (!(b2 && (b2[1] === "g" || b2[1] === "ml"))) line = line.replace(/^[(\[][^)\]]*[)\]]\s*/, "");
+    }
+    if (!bm) { const b2 = bracketSize(line); if (b2 && (b2[1] === "g" || b2[1] === "ml")) { bm = [b2[0], b2[1]]; line = b2[2]; } }
+    if (unit === "" && /^sticks?\s+(of\s+)?/i.test(line)) { line = line.replace(/^sticks?\s+(of\s+)?/i, ""); amount = (amount ?? 1) * 113; unit = "g"; }
+    line = line.replace(/^of\s+/i, "");
+    const name = metricText(line.replace(/^[ ,\-]+|[ ,\-]+$/g, ""));
+    if (unit === "pinch" && amount == null) amount = 1;
+    if (bm) return { amount: bm[0], unit: bm[1], name };
+    const [am, un] = toMetric(amount, unit, name);
+    return { amount: am, unit: un, name };
+  }
+  const isNumberedStep = l => /^(step\s*)?\d{1,2}\s*[.):]\s+\S/i.test(l) && !/^\d+\.\d/.test(l);
+  const stripStep = l => l.replace(/^(step\s*)?\d{1,2}\s*[.):]\s*/i, "").trim();
+  function startsWithQuantity(l) {
+    if (!l) return false; const f = Array.from(l)[0];
+    if (UFRAC[f] != null) return true;
+    if (/[0-9]/.test(f)) return !isNumberedStep(l);
+    const lo = l.toLowerCase(); return lo.startsWith("a pinch") || lo.startsWith("pinch");
+  }
+  function sectionHeader(line) {
+    if (startsWithQuantity(line) || isNumberedStep(line)) return null;
+    const words = line.split(" ").filter(Boolean); if (words.length > 6) return null;
+    const colon = line.endsWith(":"); let name = line.replace(/^[: ]+|[: ]+$/g, "");
+    const lo = name.toLowerCase(); const forStart = lo.startsWith("for the ") || lo.startsWith("for ");
+    const caps = name.length > 2 && name === name.toUpperCase() && /\p{L}/u.test(name);
+    if (!(colon || forStart || caps)) return null;
+    if (forStart && !colon && words.length > 4) return null;
+    name = name.replace(/^for (the )?/i, ""); if (!name) return null;
+    return name[0].toUpperCase() + name.slice(1).toLowerCase();
+  }
+  function strip(header, suffixes) {
+    const lo = header.toLowerCase();
+    for (const s of suffixes) if (lo.endsWith(" " + s)) { const n = header.slice(0, header.length - s.length - 1).trim(); return n || null; }
+    return null;
+  }
+  const newSection = (name = "") => ({ id: Math.random().toString(36).slice(2), name, ingredients: [], steps: [] });
+  function sectionIndex(name, sections) {
+    const lo = name.toLowerCase();
+    const idx = sections.findIndex(s => { const o = s.name.toLowerCase(); return o && (o === lo || o.includes(lo) || lo.includes(o)); });
+    if (idx >= 0) return idx;
+    if (sections.length === 1 && !sections[0].name && !sections[0].ingredients.length && !sections[0].steps.length) { sections[0].name = name; return 0; }
+    sections.push(newSection(name)); return sections.length - 1;
+  }
+  function parse(text) {
+    let title = "", sections = [newSection()], cur = 0, mode = "unknown", unassigned = [], targeted = false, servings = null;
+    const lines = text.split(/\r?\n/).map(cleanLine).filter(Boolean);
+    for (const line of lines) {
+      const lower = line.toLowerCase().replace(/^[: ]+|[: ]+$/g, "");
+      if (servings == null) { const m = lower.match(/^(serves|servings|yield|yields|makes|portions)\s*:?\s*(about\s*)?(\d+)/); if (m) { servings = +m[3]; continue; } }
+      if (ING_H.includes(lower)) { mode = "ingredients"; continue; }
+      if (INS_H.includes(lower)) { mode = "instructions"; targeted = false; continue; }
+      if (IGN_H.includes(lower)) { mode = "ignored"; continue; }
+      const hasQ = startsWithQuantity(line), numbered = isNumberedStep(line);
+      if (!title && !hasQ && !numbered && mode === "unknown" && line.length < 80) { title = line.replace(/^[: ]+|[: ]+$/g, ""); continue; }
+      const header = sectionHeader(line);
+      if (header) {
+        const insName = strip(header, INS_H);
+        if (insName) { mode = "instructions"; cur = sectionIndex(insName, sections); targeted = true; continue; }
+        const name = strip(header, ING_H) || header;
+        if (mode === "instructions") { cur = sectionIndex(name, sections); targeted = true; }
+        else {
+          mode = "ingredients";
+          if (!sections[cur].name && !sections[cur].ingredients.length) sections[cur].name = name;
+          else cur = sectionIndex(name, sections);
+        }
+        continue;
+      }
+      if (mode === "ignored") continue;
+      const wc = line.split(" ").length;
+      const asIng = mode === "ingredients" ? !(numbered && wc > 8) : mode === "instructions" ? false : hasQ && !numbered && wc <= 12;
+      if (asIng) sections[cur].ingredients.push(parseIngredient(line));
+      else {
+        const step = metricText(stripStep(line)); if (!step) continue;
+        if (targeted || sections.length === 1) sections[cur].steps.push(step); else unassigned.push(step);
+      }
+    }
+    if (unassigned.length) { if (sections.length === 1) sections[0].steps.push(...unassigned); else sections.push({ ...newSection("Instructions"), steps: unassigned }); }
+    const ne = sections.filter(s => s.ingredients.length || s.steps.length);
+    return { title: title || "Imported Recipe", servings: servings || 4, sections: ne.length ? ne : [newSection()] };
+  }
+  return { parse, parseIngredient, parseAmount, format, usText, metricText, toMetric, fraction };
+})();
+if (typeof module !== "undefined") module.exports = Core;
+
+</script>
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const uid = () => Math.random().toString(36).slice(2, 10);
+const ICON = {
+  book:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v17H6.5A2.5 2.5 0 0 0 4 21.5z"/><path d="M4 21.5A2.5 2.5 0 0 1 6.5 19H20v3H6.5"/></svg>',
+  cart:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/><path d="M2 3h3l2.7 12.2a1.5 1.5 0 0 0 1.5 1.2h8.6a1.5 1.5 0 0 0 1.5-1.1L21 7H6"/></svg>',
+  person:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3.2"/><path d="M5.5 18.5c1.6-2.2 3.8-3.3 6.5-3.3s4.9 1.1 6.5 3.3"/></svg>',
+  basket:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h18l-2 10H5z"/><path d="M8 10l4-6 4 6"/></svg>',
+  list:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 6h11M10 12h11M10 18h11"/><text x="2" y="8" font-size="7" fill="currentColor" stroke="none">1</text><text x="2" y="14" font-size="7" fill="currentColor" stroke="none">2</text><text x="2" y="20" font-size="7" fill="currentColor" stroke="none">3</text></svg>',
+  plus:'<svg width="26" height="26" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M12 7v10M7 12h10" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  folder:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>',
+  more:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><circle cx="7.5" cy="12" r="1" fill="currentColor"/><circle cx="12" cy="12" r="1" fill="currentColor"/><circle cx="16.5" cy="12" r="1" fill="currentColor"/></svg>',
+};
+
+// ---------- data ----------
+function sample() {
+  const c = n => ({ id: uid(), name: n });
+  const cats = ["Breakfast","Lunch","Dinner","Dessert","Cookies"].map(c);
+  const I = (amount, unit, name) => ({ amount, unit, name });
+  const S = (name, ingredients, steps) => ({ id: uid(), name, ingredients, steps });
+  return {
+    categories: cats,
+    recipes: [
+      { id: uid(), title: "Cinnamon Rolls", categoryID: cats[0].id, servings: 12, favorite: true, sections: [
+        S("Dough", [I(500,"g","all-purpose flour"),I(240,"ml","warm milk"),I(7,"g","dry yeast"),I(50,"g","sugar"),I(60,"g","butter, melted"),I(1,"","egg"),I(1,"tsp","salt")],
+          ["Dissolve the yeast and a pinch of sugar in the warm milk. Let it rest for 5 minutes until foamy.","Add flour, sugar, melted butter, egg and salt. Knead for 8–10 minutes until smooth and elastic.","Cover and let rise in a warm place for about 1 hour, until doubled."]),
+        S("Filling", [I(80,"g","butter, soft"),I(110,"g","brown sugar"),I(2,"tbsp","ground cinnamon")],
+          ["Mix the soft butter, brown sugar and cinnamon into a spreadable paste.","Roll the dough into a 40×30 cm rectangle, spread the filling evenly and roll it up tightly from the long side.","Cut into 12 rolls, place in a baking dish and let rise for another 30 minutes. Bake at 180 °C for 22–25 minutes."]),
+        S("Frosting", [I(100,"g","cream cheese"),I(60,"g","powdered sugar"),I(30,"g","butter, soft"),I(1,"tsp","vanilla extract")],
+          ["Beat all frosting ingredients until creamy.","Spread over the warm rolls and serve."]) ] },
+      { id: uid(), title: "Overnight Oats", categoryID: cats[0].id, servings: 1, sections: [
+        S("", [I(45,"g","rolled oats"),I(120,"ml","milk"),I(60,"g","Greek yogurt"),I(1,"tbsp","chia seeds"),I(1,"tsp","honey"),I(null,"","berries for topping")],
+          ["Stir oats, milk, yogurt, chia seeds and honey together in a jar.","Close and refrigerate overnight (at least 4 hours).","Top with berries and enjoy cold."]) ] },
+      { id: uid(), title: "Tomato Soup", categoryID: cats[1].id, servings: 4, sections: [
+        S("", [I(2,"tbsp","olive oil"),I(1,"","onion, chopped"),I(2,"","garlic cloves"),I(800,"g","canned tomatoes"),I(500,"ml","vegetable stock"),I(100,"ml","cream"),I(1,"pinch","sugar")],
+          ["Sauté the onion in olive oil for 5 minutes, add the garlic for 1 more minute.","Add tomatoes, stock and sugar. Simmer for 20 minutes.","Blend until smooth, stir in the cream and season with salt and pepper."]) ] },
+      { id: uid(), title: "Chocolate Chip Cookies", categoryID: cats[4].id, servings: 24, sections: [
+        S("", [I(280,"g","all-purpose flour"),I(1,"tsp","baking soda"),I(1,"tsp","salt"),I(225,"g","butter, soft"),I(150,"g","sugar"),I(165,"g","brown sugar"),I(2,"","eggs"),I(2,"tsp","vanilla extract"),I(340,"g","chocolate chips")],
+          ["Preheat the oven to 190 °C and line two baking sheets with parchment paper.","Whisk flour, baking soda and salt in a bowl.","Beat butter and both sugars until fluffy. Beat in the eggs and vanilla.","Stir in the flour mixture, then fold in the chocolate chips.","Scoop balls of dough onto the sheets and bake for 9–11 minutes until golden at the edges."]) ] },
+    ],
+    lists: [{ id: uid(), name: "Weekly shop", open: true, items: ["eggs","milk","bananas"].map(n => ({ id: uid(), name: n, checked: false })) },
+            { id: uid(), name: "Birthday baking", open: false, items: ["cream cheese","sprinkles"].map(n => ({ id: uid(), name: n, checked: false })) }],
+    settings: { name: "", units: "metric", awake: true },
+  };
+}
+const KEY = "recipebox-v1";
+let D; try { D = JSON.parse(localStorage.getItem(KEY)) || sample(); } catch { D = sample(); }
+D.lists = Array.isArray(D.lists) ? D.lists : []; D.categories = D.categories || []; D.recipes = D.recipes || [];
+D.settings = Object.assign({ name: "", units: "metric", awake: true }, D.settings || {});
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch {} };
+
+// ---------- ui state ----------
+const st = { draft: null, listMenu: null, renamingList: null, pickFor: null, confirm: null, renaming: null, tab: "recipes", stack: [], filter: "all", q: "", sheet: null, units: D.settings.units, servings: null, checked: new Set(), done: new Set(), anchor: null, importText: "", parsed: null };
+const catName = id => (D.categories.find(c => c.id === id) || {}).name || "Uncategorized";
+const fmt = (i, scale = 1, units = st.units) => Core.format(i.amount, i.unit, i.name, units, scale);
+function toast(msg) { const t = document.createElement("div"); t.className = "toast"; t.textContent = "✓ " + msg; $(".screen").appendChild(t); setTimeout(() => t.remove(), 1600); }
+
+// ---------- render ----------
+function render() {
+  const v = $("#views");
+  const top = st.stack[st.stack.length - 1];
+  let html; railHTML = "";
+  if (st.tab === "recipes") html = top ? detailView(top) : recipesView();
+  else if (st.tab === "groceries") html = groceryView();
+  else html = top === "categories" ? categoryView(false) : profileView();
+  const scroll = v.firstElementChild && v.firstElementChild.dataset.key === keyOf() ? v.firstElementChild.scrollTop : 0;
+  const oldPanel = v.querySelector(".sheet .panel"), panelScroll = oldPanel && oldPanel.dataset.sheet === st.sheet ? oldPanel.scrollTop : 0;
+  v.innerHTML = `<div class="view" data-key="${keyOf()}">${html}</div>` + railHTML + (st.sheet ? sheetView() : "");
+  v.firstElementChild.scrollTop = scroll;
+  const panel = v.querySelector(".sheet .panel"); if (panel) panel.scrollTop = panelScroll;
+  if (!st.sheet) lastSheet = null;
+  updateWakeLock();
+  const open = D.lists.reduce((a, l) => a + l.items.filter(g => !g.checked).length, 0);
+  $("#tabbar").innerHTML = [["recipes","Recipes",ICON.book],["groceries","Groceries",ICON.cart],["profile","Profile",ICON.person]]
+    .map(([k, l, i]) => `<button class="tab ${st.tab === k ? "on" : ""}" onclick="go('${k}')">${i}${l}${k === "groceries" && open ? `<span class="badge">${open}</span>` : ""}</button>`).join("");
+}
+const keyOf = () => st.tab + ":" + (st.stack[st.stack.length - 1] || "");
+function go(tab) { st.confirm = null; st.tab = tab; st.stack = []; st.sheet = null; render(); }
+
+function recipesView() {
+  const q = st.q.toLowerCase();
+  const list = D.recipes.filter(r => (!q || r.title.toLowerCase().includes(q) || r.sections.some(s => s.ingredients.some(i => i.name.toLowerCase().includes(q))))
+    && (st.filter === "all" || (st.filter === "fav" ? r.favorite : r.categoryID === st.filter))).sort((a, b) => a.title.localeCompare(b.title));
+  const groups = D.categories.map(c => [c.name, list.filter(r => r.categoryID === c.id)]);
+  groups.push(["Uncategorized", list.filter(r => !D.categories.some(c => c.id === r.categoryID))]);
+  const chip = (id, label) => `<button class="chip ${st.filter === id ? "on" : ""}" onclick="st.filter='${id}';render()">${esc(label)}</button>`;
+  const body = groups.filter(g => g[1].length).map(([name, rs]) => `<div class="ghead">${esc(name)}</div><div class="group">${rs.map(r => {
+      const named = r.sections.filter(s => s.name && s.ingredients.length);
+      const n = r.sections.reduce((a, s) => a + s.ingredients.length, 0);
+      return `<div class="row" onclick="openRecipe('${r.id}')"><div class="thumb">${esc(r.title[0] || "?").toUpperCase()}</div><div><div class="rt">${esc(r.title)} ${r.favorite ? '<span style="color:#FFCC00;font-size:13px">★</span>' : ""}</div><div class="rs">${n} ingredients${named.length > 1 ? "  •  " + named.map(s => esc(s.name)).join(" · ") : ""}</div></div><span class="chev">›</span></div>`;
+    }).join("")}</div>`).join("");
+  return `<div class="nav"><button class="btn" onclick="st.sheet='categories';render()">${ICON.folder}</button><span></span>
+      <button class="btn" onclick="st.sheet='new';render()">${ICON.plus}</button></div>
+    <div class="large">Recipes</div>
+    <div class="search">🔍<input placeholder="Search recipes or ingredients" value="${esc(st.q)}" oninput="st.q=this.value;renderKeepFocus(this)"></div>
+    <div class="chips">${chip("all", "All")}${chip("fav", "★ Favorites")}${D.categories.map(c => chip(c.id, c.name)).join("")}<button class="chip add" onclick="st.sheet='categories';render()">＋</button></div>
+    ${body || `<div class="empty"><div style="font-size:40px">🍴</div><b>${st.q ? "No results" : "No recipes yet"}</b><br>Tap ＋ to write a recipe or paste one.</div>`}<div style="height:30px"></div>`;
+}
+function renderKeepFocus(el) { const pos = el.selectionStart; render(); const i = $(".search input"); i.focus(); i.setSelectionRange(pos, pos); }
+function openRecipe(id) { const r = D.recipes.find(x => x.id === id); st.stack.push(id); st.servings = r.servings; st.units = D.settings.units; st.checked = new Set(); st.done = new Set(); st.anchor = null; render(); }
+
+function detailView(id) {
+  const r = D.recipes.find(x => x.id === id); if (!r) { st.stack = []; return recipesView(); }
+  const scale = st.servings / r.servings, multi = r.sections.length > 1;
+  const groups = [];
+  const secs = r.sections.map((s, si) => {
+    const g = { name: multi ? (s.name === "Instructions" ? "Steps" : s.name.slice(0, 8)) : "", items: [] };
+    let h = multi && s.name ? `<div class="secname">${esc(s.name)}</div>` : "";
+    if (s.ingredients.length) {
+      g.items.push([`a${si}i`, multi ? "" : "Ingred.", ICON.basket]);
+      h += `<div class="card" id="a${si}i"><div class="lbl">${ICON.basket.replace('<svg', '<svg width="18" height="18"')}Ingredients</div>${s.ingredients.map((i, ii) => {
+        const k = si + "-" + ii, d = st.checked.has(k);
+        return `<div class="ing ${d ? "done" : ""}" onclick="tog(st.checked,'${k}')"><div class="circ"></div><span class="amt">${esc(fmt(i, scale))}</span><span>${esc(st.units === "us" ? Core.usText(i.name) : i.name)}</span></div>`; }).join("")}</div>`;
+    }
+    if (s.steps.length) {
+      g.items.push([`a${si}s`, multi ? "" : "Steps", ICON.list]);
+      h += `<div class="card" id="a${si}s"><div class="lbl">${ICON.list.replace('<svg', '<svg width="18" height="18"')}Instructions</div>${s.steps.map((t, ti) => {
+        const k = si + "-" + ti, d = st.done.has(k);
+        return `<div class="step ${d ? "done" : ""}" onclick="tog(st.done,'${k}')"><div class="num">${ti + 1}</div><div>${esc(st.units === "us" ? Core.usText(t) : t)}</div></div>`; }).join("")}</div>`;
+    }
+    if (g.items.length) groups.push(g);
+    return h;
+  }).join("");
+  return `<div class="nav"><button class="btn" onclick="st.stack.pop();render()">‹ Recipes</button>
+      <div class="seg"><button class="${st.units === "metric" ? "on" : ""}" onclick="st.units='metric';render()">Metric</button><button class="${st.units === "us" ? "on" : ""}" onclick="st.units='us';render()">Cups</button></div>
+      <button class="btn" onclick="st.sheet='menu';render()">${ICON.more}</button></div>
+    <div class="detail">
+      <div class="cat">${esc(catName(r.categoryID).toUpperCase())}</div>
+      <div class="dtitle">${esc(r.title)}</div>
+      <div class="card" style="display:flex;align-items:center;padding:10px 12px"><span style="flex:1">👥 ${st.servings} servings</span>
+        <div class="stepper"><button onclick="st.servings=Math.max(1,st.servings-1);render()">−</button><button onclick="st.servings++;render()">+</button></div></div>
+      <button class="prim" onclick="addGroceries('${r.id}')">🛒 Add ingredients to grocery list</button>
+      ${secs}
+    </div>
+    ${(railHTML = `<div class="rail">${groups.map(g => `<div class="rg">${g.name ? `<div class="rgn">${esc(g.name)}</div>` : ""}${g.items.map(([a, t, ic]) => `<button class="${st.anchor === a ? "on" : ""} ${t ? "" : "small"}" onclick="jump('${a}')" title="${esc(g.name)} ${ic === ICON.basket ? "ingredients" : "instructions"}">${ic}${t ? `<span>${esc(t)}</span>` : ""}</button>`).join("")}</div>`).join("")}</div>`, "")}`;
+}
+let railHTML = "";
+function tog(set, k) { set.has(k) ? set.delete(k) : set.add(k); render(); }
+function jump(a) {
+  st.anchor = a; render();
+  const view = $(".view"), el = document.getElementById(a);
+  const prev = el.previousElementSibling, head = prev && prev.classList.contains("secname") ? prev : el;
+  const target = head.offsetTop - 56;
+  view.scrollTo({ top: target, behavior: "smooth" });
+}
+const groceryName = n => n.split(",")[0].replace(/\s*\([^)]*\)/g, "").trim();
+function addGroceries(id) {
+  if (D.lists.length > 1) { st.sheet = "pickList"; st.pickFor = id; render(); return; }
+  if (!D.lists.length) D.lists.push({ id: uid(), name: "Groceries", open: true, items: [] });
+  addToList(id, D.lists[0].id);
+}
+function addToList(recipeID, listID) {
+  const r = D.recipes.find(x => x.id === recipeID), l = D.lists.find(x => x.id === listID);
+  let added = 0;
+  for (const s of r.sections) for (const i of s.ingredients) {
+    const name = groceryName(i.name); if (!name) continue;
+    const ex = l.items.find(g => !g.checked && g.name.toLowerCase() === name.toLowerCase());
+    if (ex) { if (!ex.source) ex.source = r.title; else if (!ex.source.includes(r.title)) ex.source += ", " + r.title; }
+    else { l.items.push({ id: uid(), name, checked: false, source: r.title }); added++; }
+  }
+  l.open = true; st.sheet = null; save(); render();
+  toast(added ? `Added ${added} items to “${l.name}”` : `Already on “${l.name}”`);
+}
+function groceryView() {
+  const list = l => {
+    const open = l.items.filter(g => !g.checked), done = l.items.filter(g => g.checked);
+    const row = g => `<div class="row ${g.checked ? "gdone" : ""}" onclick="toggleG('${l.id}','${g.id}')"><div class="gcheck"></div><div style="flex:1"><div class="gname">${esc(g.name)}</div>${g.source && !g.checked ? `<div class="rs">${esc(g.source)}</div>` : ""}</div><button class="del" style="margin-left:10px;color:#C7C7CC" onclick="event.stopPropagation();delG('${l.id}','${g.id}')">✕</button></div>`;
+    const count = open.length === 0 && l.items.length ? `<span class="lcount ok">Done ✓</span>` : `<span class="lcount">${open.length}</span>`;
+    const head = st.renamingList === l.id
+      ? `<div class="row"><input class="input" id="lren" style="font-weight:600" value="${esc(l.name)}" onkeydown="if(event.key==='Enter')this.blur()" onblur="renameList('${l.id}',this.value)"></div>`
+      : `<div class="row lhead" onclick="toggleList('${l.id}')"><span class="chevr ${l.open ? "down" : ""}">›</span><b style="flex:1">${esc(l.name)}</b>${count}<button class="lmenu" onclick="event.stopPropagation();st.listMenu=st.listMenu==='${l.id}'?null:'${l.id}';render()">•••</button></div>`;
+    const menu = st.listMenu === l.id ? `<div class="lacts"><button onclick="st.listMenu=null;st.renamingList='${l.id}';render();const r=$('#lren');r.focus();r.select()">Rename</button><button onclick="st.listMenu=null;shareText([D.lists.find(x=>x.id==='${l.id}').name].concat(D.lists.find(x=>x.id==='${l.id}').items.filter(g=>!g.checked).map(g=>'• '+g.name)).join('\n'))">Share</button><button onclick="clearDone('${l.id}')">Clear checked</button><button class="red" onclick="if(st.confirm==='dl${l.id}'){delList('${l.id}')}else{st.confirm='dl${l.id}';render()}">${st.confirm === "dl" + l.id ? "Tap to confirm" : "Delete list"}</button></div>` : "";
+    const body = l.open ? `<div class="row"><span class="acc" style="font-size:22px">⊕</span><input class="input" id="in-${l.id}" placeholder="Add item" onkeydown="if(event.key==='Enter')addG('${l.id}')"><button style="border:0;background:none;color:var(--accent);font-weight:600;font-size:17px;cursor:pointer" onclick="addG('${l.id}')">Add</button></div>${open.map(row).join("")}${done.map(row).join("")}` : "";
+    return `<div class="group" style="margin-bottom:14px">${head}${menu}${body}</div>`;
+  };
+  return `<div class="nav"><span></span><span></span><button class="btn" onclick="st.sheet='newList';render();setTimeout(()=>$('#nl')&&$('#nl').focus(),50)">${ICON.plus}</button></div>
+    <div class="large">Grocery Lists</div>
+    ${D.lists.map(list).join("") || `<div class="empty"><div style="font-size:40px">🛒</div><b>No grocery lists</b><br>Tap ＋ to start a list.</div>`}
+    <div class="foot" style="padding-top:0">Tap a list's name to open or close it.</div><div style="height:30px"></div>`;
+}
+const findL = id => D.lists.find(l => l.id === id);
+function toggleList(id) { const l = findL(id); l.open = !l.open; st.listMenu = null; save(); render(); }
+function toggleG(lid, id) { const g = findL(lid).items.find(x => x.id === id); g.checked = !g.checked; save(); render(); }
+function delG(lid, id) { const l = findL(lid); l.items = l.items.filter(x => x.id !== id); save(); render(); }
+function addG(lid) { const inp = $("#in-" + lid), v = inp.value.trim(); if (!v) return; findL(lid).items.push({ id: uid(), name: v, checked: false }); save(); render(); $("#in-" + lid).focus(); }
+function clearDone(lid) { const l = findL(lid); l.items = l.items.filter(g => !g.checked); st.listMenu = null; save(); render(); }
+function delList(lid) { D.lists = D.lists.filter(l => l.id !== lid); st.listMenu = null; st.confirm = null; save(); render(); }
+function renameList(lid, n) { const l = findL(lid); st.renamingList = null; if (l && n.trim()) l.name = n.trim(); save(); render(); }
+function newList(name) { const l = { id: uid(), name: (name || "").trim() || "New list", open: true, items: [] }; D.lists.push(l); save(); return l; }
+function profileView() {
+  const s = D.settings, ini = s.name.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "🍳";
+  return `<div class="nav"></div><div class="large">Profile</div>
+    <div class="group"><div class="row" style="padding:14px 16px"><div class="avatar">${esc(ini)}</div><div style="flex:1"><input class="input" style="font-weight:700;font-size:20px" placeholder="Your name" value="${esc(s.name)}" onchange="D.settings.name=this.value;save();render()"><div class="rs" style="font-size:15px">${D.recipes.length} recipes · ${D.categories.length} categories</div></div></div></div>
+    <div class="shead">Preferences</div>
+    <div class="group"><div class="row">Default units<div class="seg" style="margin-left:auto"><button class="${s.units === "metric" ? "on" : ""}" onclick="D.settings.units='metric';save();render()">Metric</button><button class="${s.units === "us" ? "on" : ""}" onclick="D.settings.units='us';save();render()">Cups</button></div></div>
+      <div class="row">Keep screen on while cooking<div class="toggle ${s.awake ? "on" : ""}" onclick="D.settings.awake=!D.settings.awake;save();render()"></div></div></div>
+    <div class="foot">Recipes are always saved in metric. Switch to cups on any recipe with the Metric / Cups toggle.</div>
+    <div class="shead">Organize</div>
+    <div class="group"><div class="row" onclick="st.stack.push('categories');render()"><span class="acc">${ICON.folder}</span>Categories<span class="chev">›</span></div>
+      <div class="row"><span class="acc">☆</span>Favorites<span class="val">${D.recipes.filter(r => r.favorite).length}</span></div></div>
+    <div class="shead">Conversion guide</div>
+    <div class="group">${[["1 cup flour","125 g"],["1 cup sugar","200 g"],["1 cup butter","227 g"],["1 cup liquid","240 ml"],["1 tbsp / 1 tsp","15 ml / 5 ml"],["350 °F","180 °C"]].map(([a, b]) => `<div class="row">${a}<span class="val">${b}</span></div>`).join("")}</div>
+    <div class="shead">Backup</div>
+    <div class="group"><div class="row acc" onclick="exportBackup()">⬇️ Save a backup file</div>
+      <label class="row acc" style="cursor:pointer">⬆️ Restore from backup<input type="file" accept="application/json,.json" style="display:none" onchange="importBackup(this)"></label></div>
+    <div class="foot">Your recipes are stored on this device only. Save a backup now and then, and to move recipes to another phone or browser.</div>
+    <div class="shead">Data</div>
+    <div class="group"><div class="row acc" onclick="if(st.confirm==='reset'){D=sample();st.confirm=null;save();toast('Samples restored')}else st.confirm='reset';render()">${st.confirm === "reset" ? "Tap again to replace your recipes" : "Restore sample recipes"}</div><div class="row red" onclick="if(st.confirm==='del'){D.recipes=[];D.lists=[];D.categories=[];st.confirm=null;save()}else st.confirm='del';render()">${st.confirm === "del" ? "Tap again to delete everything" : "Delete all recipes"}</div></div>
+    <div class="shead">About</div><div class="group"><div class="row">Version<span class="val">1.0</span></div></div><div style="height:30px"></div>`;
+}
+
+function categoryView(inSheet) {
+  return `<div class="nav">${inSheet ? `<button class="btn" style="font-weight:600" onclick="st.sheet=null;render()">Done</button>` : `<button class="btn" onclick="st.stack.pop();render()">‹ Profile</button>`}<span class="center">Categories</span><span style="width:50px"></span></div>
+    <div class="group" style="margin-top:10px"><div class="row"><input class="input" id="cin" placeholder="New category, e.g. Cookies" onkeydown="if(event.key==='Enter')addCat()"><button style="border:0;background:none;color:var(--accent);font-weight:600;font-size:17px;cursor:pointer" onclick="addCat()">Add</button></div></div>
+    <div class="shead">Your categories</div>
+    <div class="group">${D.categories.map((c, i) => `<div class="row"><span class="acc">${ICON.folder}</span>${st.renaming === c.id ? `<input class="input" id="ren" value="${esc(c.name)}" onkeydown="if(event.key==='Enter')this.blur()" onblur="renameCat('${c.id}',this.value)">` : `<span onclick="st.renaming='${c.id}';render();const r=$('#ren');r.focus();r.select()" style="flex:1">${esc(c.name)}</span>`}<span class="val" style="margin:0">${D.recipes.filter(r => r.categoryID === c.id).length}</span>
+      <button class="del" style="margin-left:6px;color:var(--sec)" onclick="moveCat(${i},-1)">↑</button><button class="del" style="margin:0" onclick="delCat('${c.id}')">Delete</button></div>`).join("") || `<div class="row" style="color:var(--sec)">No categories yet</div>`}</div>
+    <div class="foot">Tap a name to rename, ↑ to reorder. Recipes in a deleted category become “Uncategorized”.</div>`;
+}
+function addCat() { const v = $("#cin").value.trim(); if (v && !D.categories.some(c => c.name.toLowerCase() === v.toLowerCase())) D.categories.push({ id: uid(), name: v }); save(); render(); const i = $("#cin"); i && i.focus(); }
+function delCat(id) { D.categories = D.categories.filter(c => c.id !== id); D.recipes.forEach(r => { if (r.categoryID === id) r.categoryID = null; }); if (st.filter === id) st.filter = "all"; save(); render(); }
+function renameCat(id, n) { const c = D.categories.find(x => x.id === id); st.renaming = null; if (c && n && n.trim()) c.name = n.trim(); save(); render(); }
+function moveCat(i, d) { const j = i + d; if (j < 0) return; [D.categories[i], D.categories[j]] = [D.categories[j], D.categories[i]]; save(); render(); }
+
+// ---------- sheets ----------
+const SAMPLE_US = `Peanut Butter Chocolate Bars
+Makes 16
+Ingredients
+For the base:
+1 cup creamy peanut butter
+1/2 cup (1 stick) butter, melted
+2 cups powdered sugar
+1 1/2 cups graham cracker crumbs
+For the topping:
+1 1/2 cups semi-sweet chocolate chips
+4 tbsp peanut butter
+Instructions
+1. Line an 8x8-inch pan with parchment paper.
+2. Mix the base ingredients and press firmly into the pan.
+3. Melt chocolate chips and peanut butter together, spread over the base.
+4. Chill for 1 hour, then cut into squares.`;
+let lastSheet = null;
+function sheetView() {
+  let inner = "";
+  if (st.sheet === "categories") inner = categoryView(true);
+  else if (st.sheet === "newList") inner = `<div class="nav"><button class="btn" onclick="st.sheet=null;render()">Cancel</button><span class="center">New List</span><button class="btn" style="font-weight:600" onclick="newList($('#nl').value);st.sheet=null;render()">Create</button></div>
+      <div style="padding:20px 0"><div class="group"><div class="row"><input class="input" id="nl" placeholder="e.g. Weekly shop, Party, Camping" onkeydown="if(event.key==='Enter'){newList(this.value);st.sheet=null;render()}"></div></div></div>`;
+  else if (st.sheet === "pickList") { const r = D.recipes.find(x => x.id === st.pickFor);
+    inner = `<div class="nav"><button class="btn" onclick="st.sheet=null;render()">Cancel</button><span class="center">Add to which list?</span><span style="width:50px"></span></div>
+      <div style="padding:16px 0"><div class="group">${D.lists.map(l => `<div class="row" onclick="addToList('${r.id}','${l.id}')"><span class="acc">${ICON.cart.replace('<svg', '<svg width="22" height="22"')}</span>${esc(l.name)}<span class="val">${l.items.filter(g => !g.checked).length} items</span></div>`).join("")}</div>
+      <div class="shead">Or</div><div class="group"><div class="row acc" onclick="addToList('${r.id}', newList(${JSON.stringify(r.title).replace(/"/g, "&quot;")}).id)">＋ New list “${esc(r.title)}”</div></div></div>`; }
+  else if (st.sheet === "new") inner = `<div class="nav"><button class="btn" onclick="st.sheet=null;render()">Cancel</button><span class="center">Add Recipe</span><span style="width:50px"></span></div>
+      <div style="padding:20px 16px"><button class="prim" onclick="st.sheet='import';render()">📋 Import from Text</button>
+      <div class="hint" style="margin-top:-6px">Paste a recipe from a website. Cups, ounces, sticks, °F and inches are converted to metric. Headings like “For the filling:” become sections.</div>
+      <button class="sec2" onclick="openEditor(null)">✏️ Write a new recipe</button></div>`;
+  else if (st.sheet === "import") inner = `<div class="nav"><button class="btn" onclick="st.sheet=null;render()">Cancel</button><span class="center">Import Recipe</span><span style="width:50px"></span></div>
+      <div style="padding:8px 16px"><textarea id="imp" placeholder="Paste a recipe here…" oninput="st.importText=this.value">${esc(st.importText)}</textarea>
+      <div class="hint">✨ Cups, ounces, sticks, °F and inches are converted to metric automatically. Headings like “For the filling:” become sections.</div>
+      <div class="two"><button class="sec2" onclick="pasteClipboard()">📋 Paste</button><button class="prim" style="margin:0" onclick="convert()">Convert →</button></div>
+      <button class="addb" style="border:0;background:none;color:var(--sec);margin-top:14px;font-size:14px;cursor:pointer;font-family:inherit" onclick="st.importText=SAMPLE_US;render()">Try with an example recipe</button></div>`;
+  else if (st.sheet === "edit") inner = editorView();
+  else if (st.sheet === "menu") {
+    const r = D.recipes.find(x => x.id === st.stack[st.stack.length - 1]);
+    inner = `<div class="nav"><span></span><span class="center">${esc(r.title)}</span><button class="btn" onclick="st.sheet=null;st.confirm=null;render()">Close</button></div><div style="padding:10px 0">
+      <div class="group"><div class="row" onclick="openEditor('${r.id}')">✏️ Edit Recipe</div>
+      <div class="row" onclick="r=D.recipes.find(x=>x.id==='${r.id}');r.favorite=!r.favorite;save();st.sheet=null;render()">${r.favorite ? "★ Remove Favorite" : "☆ Favorite"}</div>
+      <div class="row" onclick="st.sheet=null;addGroceries('${r.id}')">🛒 Add to Grocery List</div>
+      <div class="row" onclick="shareText(recipeText('${r.id}'))">↗️ Share Recipe</div>
+      <div class="row">Category<select style="margin-left:auto;font-size:16px;border:0;color:var(--accent);background:none" onchange="D.recipes.find(x=>x.id==='${r.id}').categoryID=this.value||null;save();render()"><option value="">Uncategorized</option>${D.categories.map(c => `<option value="${c.id}" ${r.categoryID === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></div>
+      <div class="row red" onclick="if(st.confirm==='delr'){D.recipes=D.recipes.filter(x=>x.id!=='${r.id}');st.confirm=null;save();st.sheet=null;st.stack=[];render()}else{st.confirm='delr';render()}">${st.confirm === "delr" ? "Tap again to delete" : "Delete Recipe"}</div></div></div>`;
+  }
+  const anim = st.sheet !== lastSheet ? "anim" : ""; lastSheet = st.sheet;
+  return `<div class="sheet ${anim}" onclick="if(event.target===this&&st.sheet!=='edit'){st.sheet=null;render()}"><div class="panel" data-sheet="${st.sheet}">${inner}</div></div>`;
+}
+// ---------- editor ----------
+const UNITS = ["", "g", "kg", "ml", "dl", "l", "tsp", "tbsp", "pinch", "pc", "cup", "oz", "lb", "fl oz"];
+const amountToText = a => a == null ? "" : Core.fraction(a);
+function toDraft(r) {
+  return { id: r.id, isNew: !D.recipes.some(x => x.id === r.id), title: r.title, categoryID: r.categoryID || null, servings: r.servings || 4, favorite: !!r.favorite, notes: r.notes || "",
+    sections: r.sections.map(s => ({ id: s.id || uid(), name: s.name || "", steps: [...s.steps],
+      ingredients: s.ingredients.map(i => ({ amountText: amountToText(i.amount), unit: i.unit || "", name: i.name })) })) };
+}
+function openEditor(id) {
+  const filterCat = st.filter !== "all" && st.filter !== "fav" ? st.filter : null;
+  const r = id ? D.recipes.find(x => x.id === id) : { id: uid(), title: "", categoryID: filterCat, servings: 4, sections: [{ id: uid(), name: "", ingredients: [{ amount: null, unit: "", name: "" }], steps: [""] }] };
+  st.draft = toDraft(r); st.editTitle = id ? "Edit Recipe" : "New Recipe"; st.sheet = "edit"; st.confirm = null; render();
+  if (!id) setTimeout(() => { const t = $("#ed-title"); t && t.focus(); }, 300);
+}
+function convert() {
+  const t = ($("#imp") || {}).value || st.importText; if (!t.trim()) return;
+  st.importText = t;
+  const p = Core.parse(t);
+  p.id = uid(); p.categoryID = st.filter !== "all" && st.filter !== "fav" ? st.filter : null;
+  st.draft = toDraft(p); st.editTitle = "Check & Save"; st.sheet = "edit"; render();
+}
+async function pasteClipboard() {
+  try { const t = await navigator.clipboard.readText(); if (t) { st.importText = t; render(); } }
+  catch { toast("Long-press in the box and choose Paste"); $("#imp").focus(); }
+}
+const ed = () => st.draft;
+function editorView() {
+  const d = ed(), multi = d.sections.length > 1;
+  const unitOpts = u => UNITS.map(x => `<option value="${x}" ${x === u ? "selected" : ""}>${x || "–"}</option>`).join("");
+  return `<div class="nav"><button class="btn" onclick="cancelEdit()">Cancel</button><span class="center">${esc(st.editTitle)}</span><button class="btn" style="font-weight:700" onclick="saveDraft()">Save</button></div>
+  <div class="ed" style="padding:6px 16px 40px">
+    <div class="card">
+      <input id="ed-title" style="width:100%;font-weight:700;font-size:20px;background:none;padding:2px 0" placeholder="Recipe title" value="${esc(d.title)}" oninput="ed().title=this.value">
+      <div style="display:flex;align-items:center;gap:10px;margin-top:12px;font-size:16px">Category
+        <select style="margin-left:auto;color:var(--accent);background:none;font-weight:600" onchange="if(this.value==='__new'){st.addingCat=true;render();setTimeout(()=>$('#ed-newcat').focus(),0)}else ed().categoryID=this.value||null">
+          <option value="">Uncategorized</option>${D.categories.map(c => `<option value="${c.id}" ${d.categoryID === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}<option value="__new">＋ New category…</option></select></div>
+      ${st.addingCat ? `<div style="display:flex;gap:6px;margin-top:8px"><input id="ed-newcat" style="flex:1" placeholder="New category name" onkeydown="if(event.key==='Enter')addCatFromEditor()"><button class="addb" onclick="addCatFromEditor()">Add</button></div>` : ""}
+      <div style="display:flex;align-items:center;gap:10px;margin-top:12px;font-size:16px">Servings <b style="margin-left:auto">${d.servings}</b>
+        <div class="stepper"><button onclick="ed().servings=Math.max(1,ed().servings-1);render()">−</button><button onclick="ed().servings++;render()">+</button></div></div>
+    </div>
+    ${d.sections.map((s, si) => `<div class="card">
+      ${multi || s.name ? `<div style="display:flex;align-items:center;gap:6px"><input class="secin" placeholder="Section name (e.g. Dough, Filling)" value="${esc(s.name)}" oninput="ed().sections[${si}].name=this.value">${multi ? `<button class="x" title="Delete section" onclick="if(st.confirm==='ds${si}'){ed().sections.splice(${si},1);st.confirm=null}else st.confirm='ds${si}';render()">${st.confirm === "ds" + si ? '<span style="font-size:13px;color:#FF3B30">Delete?</span>' : "🗑"}</button>` : ""}</div>` : ""}
+      <div class="sub">Ingredients</div>
+      ${s.ingredients.map((i, ii) => `<div class="irow">
+        <input class="amtin" inputmode="decimal" placeholder="Amt" value="${esc(i.amountText)}" oninput="ed().sections[${si}].ingredients[${ii}].amountText=this.value">
+        <select class="unitsel" onchange="ed().sections[${si}].ingredients[${ii}].unit=this.value">${unitOpts(i.unit)}</select>
+        <input class="namein" placeholder="Ingredient" value="${esc(i.name)}" oninput="ed().sections[${si}].ingredients[${ii}].name=this.value" onkeydown="if(event.key==='Enter'){addIng(${si})}">
+        <button class="x" onclick="ed().sections[${si}].ingredients.splice(${ii},1);render()">✕</button></div>`).join("")}
+      <button class="addb" onclick="addIng(${si})">＋ Add ingredient</button>
+      <div class="sub">Instructions</div>
+      ${s.steps.map((t, ti) => `<div class="irow" style="align-items:flex-start"><span class="num" style="margin-top:6px">${ti + 1}</span>
+        <textarea rows="${Math.max(2, Math.ceil(t.length / 34))}" placeholder="Describe this step" oninput="ed().sections[${si}].steps[${ti}]=this.value;this.rows=Math.max(2,Math.ceil(this.value.length/34))">${esc(t)}</textarea>
+        <button class="x" onclick="ed().sections[${si}].steps.splice(${ti},1);render()">✕</button></div>`).join("")}
+      <button class="addb" onclick="addStep(${si})">＋ Add step</button>
+    </div>`).join("")}
+    <button class="sec2" onclick="addSection()">＋ Add section (e.g. Filling, Frosting)</button>
+    <div class="hint">Sections split a recipe into parts like dough, filling and frosting, each with its own ingredients and steps. Amounts in cups, oz or lb are converted to metric when you save.</div>
+    <div class="card"><div class="sub" style="margin-top:0">Notes</div><textarea style="width:100%" rows="3" placeholder="Tips, source, variations…" oninput="ed().notes=this.value">${esc(d.notes)}</textarea></div>
+  </div>`;
+}
+function addIng(si) { ed().sections[si].ingredients.push({ amountText: "", unit: "", name: "" }); render(); const ins = document.querySelectorAll(".sheet .card")[si + 1].querySelectorAll(".amtin"); ins[ins.length - 1].focus(); }
+function addStep(si) { ed().sections[si].steps.push(""); render(); const tas = document.querySelectorAll(".sheet .card")[si + 1].querySelectorAll("textarea"); tas[tas.length - 1].focus(); }
+function addSection() {
+  const d = ed(); if (d.sections.length === 1 && !d.sections[0].name) d.sections[0].name = "Part 1";
+  d.sections.push({ id: uid(), name: "Part " + (d.sections.length + 1), ingredients: [{ amountText: "", unit: "", name: "" }], steps: [""] }); render();
+}
+function addCatFromEditor() {
+  const v = ($("#ed-newcat").value || "").trim(); st.addingCat = false;
+  if (v) { let c = D.categories.find(x => x.name.toLowerCase() === v.toLowerCase()); if (!c) { c = { id: uid(), name: v }; D.categories.push(c); save(); } ed().categoryID = c.id; }
+  render();
+}
+function cancelEdit() { st.sheet = null; st.draft = null; st.addingCat = false; st.confirm = null; render(); }
+function saveDraft() {
+  const d = ed();
+  if (!d.title.trim()) { toast("Please give the recipe a title"); $("#ed-title").focus(); return; }
+  const sections = d.sections.map(s => ({ id: s.id, name: s.name.trim(),
+    ingredients: s.ingredients.filter(i => i.name.trim()).map(i => {
+      const parsed = Core.parseAmount(i.amountText.trim()); const [amount, unit] = Core.toMetric(parsed ? parsed[0] : null, i.unit, i.name.trim());
+      return { amount, unit: unit === "pinch" && amount == null ? "pinch" : unit, name: Core.metricText(i.name.trim()) }; }),
+    steps: s.steps.map(t => Core.metricText(t.trim())).filter(Boolean) }))
+    .filter(s => s.ingredients.length || s.steps.length || s.name);
+  const r = { id: d.id, title: d.title.trim(), categoryID: d.categoryID, servings: d.servings, favorite: d.favorite, notes: d.notes.trim(), sections: sections.length ? sections : [{ id: uid(), name: "", ingredients: [], steps: [] }] };
+  const idx = D.recipes.findIndex(x => x.id === r.id);
+  if (idx >= 0) D.recipes[idx] = r; else D.recipes.push(r);
+  save(); st.sheet = null; st.draft = null; st.importText = ""; st.tab = "recipes";
+  st.stack = []; openRecipe(r.id); toast(idx >= 0 ? "Changes saved" : "Recipe saved");
+}
+
+// ---------- sharing, backup, screen ----------
+function recipeText(id) {
+  const r = D.recipes.find(x => x.id === id), scale = (st.servings || r.servings) / r.servings;
+  const out = [r.title, `${st.servings || r.servings} servings`, ""];
+  for (const s of r.sections) {
+    if (s.name) out.push(s.name.toUpperCase());
+    for (const i of s.ingredients) out.push(`• ${fmt(i, scale)} ${i.name}`.replace("•  ", "• "));
+    s.steps.forEach((t, n) => out.push(`${n + 1}. ${st.units === "us" ? Core.usText(t) : t}`));
+    out.push("");
+  }
+  if (r.notes) out.push(r.notes);
+  return out.join("\n");
+}
+async function shareText(text) {
+  try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+  try { await navigator.clipboard.writeText(text); toast("Copied to clipboard"); } catch { toast("Sharing isn't available here"); }
+}
+function exportBackup() {
+  const blob = new Blob([JSON.stringify(D, null, 2)], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = `recipe-box-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function importBackup(input) {
+  const f = input.files && input.files[0]; if (!f) return;
+  f.text().then(t => {
+    const data = JSON.parse(t);
+    if (!Array.isArray(data.recipes) || !Array.isArray(data.categories)) throw new Error("bad");
+    data.lists = Array.isArray(data.lists) ? data.lists : [];
+    data.settings = Object.assign({ name: "", units: "metric", awake: true }, data.settings || {});
+    D = data; save(); st.stack = []; render(); toast(`Restored ${D.recipes.length} recipes`);
+  }).catch(() => toast("That file isn't a Recipe Box backup"));
+  input.value = "";
+}
+let wakeLock = null;
+async function updateWakeLock() {
+  const want = st.tab === "recipes" && st.stack.length && D.settings.awake && document.visibilityState === "visible";
+  try {
+    if (want && !wakeLock && "wakeLock" in navigator) { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { wakeLock = null; }); }
+    else if (!want && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch { wakeLock = null; }
+}
+document.addEventListener("visibilitychange", updateWakeLock);
+render();
+</script>
+</body>
+</html>
