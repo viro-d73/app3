@@ -505,10 +505,10 @@ D.settings = Object.assign({ name: "", units: "metric", awake: true }, D.setting
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch {} };
 
 // ---------- ui state ----------
-const st = { draft: null, listMenu: null, renamingList: null, pickFor: null, confirm: null, renaming: null, tab: "recipes", stack: [], filter: "all", q: "", sheet: null, units: D.settings.units, servings: null, checked: new Set(), done: new Set(), anchor: null, importText: "", parsed: null };
+const st = { pendingRestore: null, draft: null, listMenu: null, renamingList: null, pickFor: null, confirm: null, renaming: null, tab: "recipes", stack: [], filter: "all", q: "", sheet: null, units: D.settings.units, servings: null, checked: new Set(), done: new Set(), anchor: null, importText: "", parsed: null };
 const catName = id => (D.categories.find(c => c.id === id) || {}).name || "Uncategorized";
 const fmt = (i, scale = 1, units = st.units) => Core.format(i.amount, i.unit, i.name, units, scale);
-function toast(msg) { const t = document.createElement("div"); t.className = "toast"; t.textContent = "✓ " + msg; $(".screen").appendChild(t); setTimeout(() => t.remove(), 1600); }
+function toast(msg, ok = true) { const t = document.createElement("div"); t.className = "toast"; t.textContent = (ok ? "✓ " : "⚠️ ") + msg; $(".screen").appendChild(t); setTimeout(() => t.remove(), 1600); }
 
 // ---------- render ----------
 function render() {
@@ -652,6 +652,10 @@ function profileView() {
   const s = D.settings, ini = s.name.split(" ").filter(Boolean).slice(0, 2).map(w => w[0]).join("").toUpperCase() || "🍳";
   return `<div class="nav"></div><div class="large">Profile</div>
     <div class="group"><div class="row" style="padding:14px 16px"><div class="avatar">${esc(ini)}</div><div style="flex:1"><input class="input" style="font-weight:700;font-size:20px" placeholder="Your name" value="${esc(s.name)}" onchange="D.settings.name=this.value;save();render()"><div class="rs" style="font-size:15px">${D.recipes.length} recipes · ${D.categories.length} categories</div></div></div></div>
+    <div class="shead">Backup</div>
+    <div class="group"><div class="row acc" onclick="exportBackup()">💾 Save backup (CSV)<span class="val" style="font-size:14px">${s.lastBackup ? "Last: " + esc(fmtDate(s.lastBackup)) : "Never"}</span></div>
+      <label class="row acc" style="cursor:pointer">📂 Restore from backup<input type="file" accept=".csv,text/csv,text/comma-separated-values,.json,application/json" style="display:none" onchange="importBackup(this)"></label></div>
+    <div class="foot">Your recipes are stored on this device only. “Save backup” makes one CSV file with all recipes, categories, grocery lists and settings. On iPhone choose <b>Save to Files</b> in the share sheet. “Restore” reads that file back in.${backupDue() ? ` <span style="color:#FF9500;font-weight:600">It's been a while — time for a backup!</span>` : ""}</div>
     <div class="shead">Preferences</div>
     <div class="group"><div class="row">Default units<div class="seg" style="margin-left:auto"><button class="${s.units === "metric" ? "on" : ""}" onclick="D.settings.units='metric';save();render()">Metric</button><button class="${s.units === "us" ? "on" : ""}" onclick="D.settings.units='us';save();render()">Cups</button></div></div>
       <div class="row">Keep screen on while cooking<div class="toggle ${s.awake ? "on" : ""}" onclick="D.settings.awake=!D.settings.awake;save();render()"></div></div></div>
@@ -661,10 +665,6 @@ function profileView() {
       <div class="row"><span class="acc">☆</span>Favorites<span class="val">${D.recipes.filter(r => r.favorite).length}</span></div></div>
     <div class="shead">Conversion guide</div>
     <div class="group">${[["1 cup flour","125 g"],["1 cup sugar","200 g"],["1 cup butter","227 g"],["1 cup liquid","240 ml"],["1 tbsp / 1 tsp","15 ml / 5 ml"],["350 °F","180 °C"]].map(([a, b]) => `<div class="row">${a}<span class="val">${b}</span></div>`).join("")}</div>
-    <div class="shead">Backup</div>
-    <div class="group"><div class="row acc" onclick="exportBackup()">⬇️ Save a backup file</div>
-      <label class="row acc" style="cursor:pointer">⬆️ Restore from backup<input type="file" accept="application/json,.json" style="display:none" onchange="importBackup(this)"></label></div>
-    <div class="foot">Your recipes are stored on this device only. Save a backup now and then, and to move recipes to another phone or browser.</div>
     <div class="shead">Data</div>
     <div class="group"><div class="row acc" onclick="if(st.confirm==='reset'){D=sample();st.confirm=null;save();toast('Samples restored')}else st.confirm='reset';render()">${st.confirm === "reset" ? "Tap again to replace your recipes" : "Restore sample recipes"}</div><div class="row red" onclick="if(st.confirm==='del'){D.recipes=[];D.lists=[];D.categories=[];st.confirm=null;save()}else st.confirm='del';render()">${st.confirm === "del" ? "Tap again to delete everything" : "Delete all recipes"}</div></div>
     <div class="shead">About</div><div class="group"><div class="row">Version<span class="val">1.0</span></div></div><div style="height:30px"></div>`;
@@ -720,6 +720,20 @@ function sheetView() {
       <div class="two"><button class="sec2" onclick="pasteClipboard()">📋 Paste</button><button class="prim" style="margin:0" onclick="convert()">Convert →</button></div>
       <button class="addb" style="border:0;background:none;color:var(--sec);margin-top:14px;font-size:14px;cursor:pointer;font-family:inherit" onclick="st.importText=SAMPLE_US;render()">Try with an example recipe</button></div>`;
   else if (st.sheet === "edit") inner = editorView();
+  else if (st.sheet === "restore") {
+    const d = st.pendingRestore, steps = d.recipes.reduce((a, r) => a + r.sections.reduce((b, s) => b + s.steps.length, 0), 0);
+    inner = `<div class="nav"><button class="btn" onclick="st.pendingRestore=null;st.sheet=null;render()">Cancel</button><span class="center">Restore Backup</span><span style="width:50px"></span></div>
+      <div style="padding:16px">
+        <div class="card rev"><div style="font-weight:700;font-size:18px;margin-bottom:8px">This backup contains</div>
+          <div class="rowi">📖 ${d.recipes.length} recipes (${steps} steps)</div>
+          <div class="rowi">📁 ${d.categories.length} categories</div>
+          <div class="rowi">🛒 ${d.lists.length} grocery lists</div>
+          ${d.savedAt ? `<div class="rowi" style="color:var(--sec)">Saved ${esc(fmtDate(d.savedAt))}</div>` : ""}</div>
+        <div class="hint">Restoring replaces everything currently in the app (${D.recipes.length} recipes, ${D.lists.length} lists). If you're unsure, save a backup of the current state first.</div>
+        <button class="prim" onclick="applyRestore()">Replace with this backup</button>
+        <button class="sec2" onclick="exportBackup()">Save current state first</button>
+      </div>`;
+  }
   else if (st.sheet === "menu") {
     const r = D.recipes.find(x => x.id === st.stack[st.stack.length - 1]);
     inner = `<div class="nav"><span></span><span class="center">${esc(r.title)}</span><button class="btn" onclick="st.sheet=null;st.confirm=null;render()">Close</button></div><div style="padding:10px 0">
@@ -838,23 +852,166 @@ async function shareText(text) {
   try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
   try { await navigator.clipboard.writeText(text); toast("Copied to clipboard"); } catch { toast("Sharing isn't available here"); }
 }
-function exportBackup() {
-  const blob = new Blob([JSON.stringify(D, null, 2)], { type: "application/json" });
-  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
-  a.download = `recipe-box-backup-${new Date().toISOString().slice(0, 10)}.json`;
-  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+// ---------- CSV backup ----------
+// One row per thing, so the file also opens nicely in Numbers or Excel.
+// type: setting | category | recipe | section | ingredient | step | list | item
+const CSV_COLS = ["type", "ref", "recipe_or_list", "category", "servings", "section", "amount", "unit", "text", "done", "source"];
+const csvCell = v => { v = v == null ? "" : String(v); return /[",;\r\n]/.test(v) || /^\s|\s$/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
+const yesNo = b => b ? "yes" : "no";
+const numOut = n => n == null ? "" : String(Math.round(n * 10000) / 10000);
+
+function toCSV(data) {
+  const rows = [CSV_COLS];
+  const add = o => rows.push(CSV_COLS.map(c => o[c] ?? ""));
+  add({ type: "setting", recipe_or_list: "app", text: "Recipe Box backup" });
+  add({ type: "setting", recipe_or_list: "saved", text: new Date().toISOString() });
+  for (const [k, v] of Object.entries(data.settings || {})) if (k !== "lastBackup") add({ type: "setting", recipe_or_list: k, text: typeof v === "boolean" ? yesNo(v) : v });
+  const catName = id => (data.categories.find(c => c.id === id) || {}).name || "";
+  data.categories.forEach(c => add({ type: "category", text: c.name }));
+  data.recipes.forEach((r, n) => {
+    const ref = "R" + (n + 1), title = r.title;
+    add({ type: "recipe", ref, recipe_or_list: title, category: catName(r.categoryID), servings: r.servings, done: yesNo(r.favorite), text: r.notes || "" });
+    for (const sec of r.sections) {
+      add({ type: "section", ref, recipe_or_list: title, section: sec.name });
+      for (const i of sec.ingredients) add({ type: "ingredient", ref, recipe_or_list: title, section: sec.name, amount: numOut(i.amount), unit: i.unit, text: i.name });
+      for (const t of sec.steps) add({ type: "step", ref, recipe_or_list: title, section: sec.name, text: t });
+    }
+  });
+  (data.lists || []).forEach((l, n) => {
+    const ref = "L" + (n + 1);
+    add({ type: "list", ref, recipe_or_list: l.name, done: yesNo(l.open) });
+    for (const it of l.items) add({ type: "item", ref, recipe_or_list: l.name, text: it.name, done: yesNo(it.checked), source: it.source || "" });
+  });
+  return "﻿" + rows.map(r => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
 }
+
+/** RFC 4180 parser; also accepts ";" (Swiss/German Excel) and tab separated files. */
+function parseCSV(text) {
+  text = text.replace(/^﻿/, "");
+  const firstLine = text.split(/\r?\n/, 1)[0];
+  const delim = [",", ";", "\t"].sort((a, b) => firstLine.split(b).length - firstLine.split(a).length)[0];
+  const rows = []; let row = [], cell = "", q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; }
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === delim) { row.push(cell); cell = ""; }
+    else if (c === "\n" || c === "\r") { if (c === "\r" && text[i + 1] === "\n") i++; row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += c;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(c => c.trim() !== ""));
+}
+
+function fromCSV(text) {
+  const rows = parseCSV(text);
+  if (!rows.length) throw new Error("empty");
+  const head = rows[0].map(h => h.trim().toLowerCase());
+  if (!head.includes("type") || !head.includes("text")) throw new Error("not a backup");
+  const col = name => head.indexOf(name);
+  const get = (r, name) => { const i = col(name); return i < 0 ? "" : (r[i] ?? ""); };
+  const isYes = v => /^(yes|true|1|ja|oui|x)$/i.test(String(v).trim());
+  const data = { categories: [], recipes: [], lists: [], settings: { name: "", units: "metric", awake: true } };
+  const recipes = {}, lists = {}, catByName = {};
+  const category = name => {
+    name = name.trim(); if (!name) return null;
+    const key = name.toLowerCase();
+    if (!catByName[key]) { catByName[key] = { id: uid(), name }; data.categories.push(catByName[key]); }
+    return catByName[key].id;
+  };
+  const section = (r, name) => {
+    let sec = r.sections.find(s => s.name === name);
+    if (!sec) { sec = { id: uid(), name, ingredients: [], steps: [] }; r.sections.push(sec); }
+    return sec;
+  };
+  let lastRecipe = null, lastList = null;
+  for (const r of rows.slice(1)) {
+    const type = get(r, "type").trim().toLowerCase(), ref = get(r, "ref").trim(), text = get(r, "text");
+    const recipeFor = () => recipes[ref] || lastRecipe;
+    const listFor = () => lists[ref] || lastList;
+    switch (type) {
+      case "setting": {
+        const key = get(r, "recipe_or_list").trim();
+        if (key === "name") data.settings.name = text;
+        if (key === "units") data.settings.units = text === "us" ? "us" : "metric";
+        if (key === "awake") data.settings.awake = isYes(text);
+        break;
+      }
+      case "category": category(text); break;
+      case "recipe": {
+        const rec = { id: uid(), title: get(r, "recipe_or_list").trim() || "Untitled", categoryID: category(get(r, "category")),
+          servings: Math.max(1, parseInt(get(r, "servings")) || 4), favorite: isYes(get(r, "done")), notes: text, sections: [] };
+        data.recipes.push(rec); lastRecipe = rec; if (ref) recipes[ref] = rec; break;
+      }
+      case "section": { const rec = recipeFor(); if (rec) section(rec, get(r, "section")); break; }
+      case "ingredient": {
+        const rec = recipeFor(); if (!rec || !text.trim()) break;
+        const amt = get(r, "amount").trim().replace(",", "."), unit = get(r, "unit").trim();
+        section(rec, get(r, "section")).ingredients.push({ amount: amt === "" || isNaN(+amt) ? null : +amt, unit, name: text.trim() });
+        break;
+      }
+      case "step": { const rec = recipeFor(); if (rec && text.trim()) section(rec, get(r, "section")).steps.push(text.trim()); break; }
+      case "list": {
+        const l = { id: uid(), name: get(r, "recipe_or_list").trim() || "List", open: get(r, "done") === "" ? true : isYes(get(r, "done")), items: [] };
+        data.lists.push(l); lastList = l; if (ref) lists[ref] = l; break;
+      }
+      case "item": {
+        const l = listFor(); if (!l || !text.trim()) break;
+        const src = get(r, "source").trim();
+        l.items.push({ id: uid(), name: text.trim(), checked: isYes(get(r, "done")), ...(src ? { source: src } : {}) });
+        break;
+      }
+    }
+  }
+  for (const rec of data.recipes) if (!rec.sections.length) rec.sections.push({ id: uid(), name: "", ingredients: [], steps: [] });
+  const saved = rows.find(r => get(r, "type").trim() === "setting" && get(r, "recipe_or_list").trim() === "saved");
+  data.savedAt = saved ? get(saved, "text") : "";
+  return data;
+}
+
+async function exportBackup() {
+  const date = new Date().toISOString().slice(0, 10);
+  const fileName = `recipe-box-backup-${date}.csv`;
+  const csv = toCSV(D);
+  const markSaved = () => { D.settings.lastBackup = new Date().toISOString(); save(); render(); };
+  // iPhone: the share sheet has "Save to Files"
+  try {
+    const file = new File([csv], fileName, { type: "text/csv" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: fileName });
+      markSaved(); toast("Backup saved"); return;
+    }
+  } catch (e) { if (e && e.name === "AbortError") return; }
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = fileName; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  markSaved(); toast("Backup downloaded");
+}
+
 function importBackup(input) {
-  const f = input.files && input.files[0]; if (!f) return;
+  const f = input.files && input.files[0]; input.value = ""; if (!f) return;
   f.text().then(t => {
-    const data = JSON.parse(t);
-    if (!Array.isArray(data.recipes) || !Array.isArray(data.categories)) throw new Error("bad");
-    data.lists = Array.isArray(data.lists) ? data.lists : [];
-    data.settings = Object.assign({ name: "", units: "metric", awake: true }, data.settings || {});
-    D = data; save(); st.stack = []; render(); toast(`Restored ${D.recipes.length} recipes`);
-  }).catch(() => toast("That file isn't a Recipe Box backup"));
-  input.value = "";
+    let data;
+    if (/^\s*\{/.test(t)) {          // older JSON backups still work
+      data = JSON.parse(t);
+      if (!Array.isArray(data.recipes) || !Array.isArray(data.categories)) throw new Error("bad");
+      data.lists = Array.isArray(data.lists) ? data.lists : [];
+    } else data = fromCSV(t);
+    st.pendingRestore = data; st.sheet = "restore"; render();
+  }).catch(() => toast("That file isn't a Recipe Box backup", false));
 }
+function applyRestore() {
+  const data = st.pendingRestore; if (!data) return;
+  const lastBackup = D.settings.lastBackup;
+  delete data.savedAt;
+  data.settings = Object.assign({ name: "", units: "metric", awake: true }, data.settings || {}, { lastBackup });
+  D = data; save(); st.pendingRestore = null; st.sheet = null; st.stack = []; st.filter = "all";
+  render(); toast(`Restored ${D.recipes.length} recipes`);
+}
+const backupDue = () => { const l = D.settings.lastBackup; return D.recipes.length > 0 && (!l || Date.now() - new Date(l) > 30 * 864e5); };
+const fmtDate = iso => { try { return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }); } catch { return ""; } };
 let wakeLock = null;
 async function updateWakeLock() {
   const want = st.tab === "recipes" && st.stack.length && D.settings.awake && document.visibilityState === "visible";
